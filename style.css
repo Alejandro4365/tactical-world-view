@@ -9,3 +9,17 @@ body {
   color: #666;
   font-style: italic;
 }
+figure {
+  margin: 2rem auto;
+  max-width: 300px;
+  text-align: center;
+}
+.pug-photo {
+  width: 100%;
+  border-radius: 8px;
+}
+figcaption {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 0.5rem;
+}
