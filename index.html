@@ -3,17 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>World View - Globe & Map</title>
+  <title>Tactical World View</title>
   
   <!-- Leaflet CSS for 2D Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
-  <!-- Globe.gl Dependencies for 3D Earth -->
+  <!-- Globe.gl & Three.js for 3D Earth -->
   <script src="https://unpkg.com/three"></script>
   <script src="https://unpkg.com/globe.gl"></script>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- GSAP for Smooth Transition Animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
   <style>
     * {
@@ -25,40 +28,11 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      font-family: Arial, sans-serif;
-      background-color: #000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #020611;
       color: #fff;
     }
 
-    /* Controls UI Overlay */
-    #ui-container {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      z-index: 1000;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 15px 20px;
-      border-radius: 8px;
-      backdrop-filter: blur(5px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-toggle {
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 10px 15px;
-      font-size: 14px;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    .btn-toggle:hover {
-      background: #0056b3;
-    }
-
-    /* Container for Views */
     #view-container {
       width: 100vw;
       height: 100vh;
@@ -71,95 +45,178 @@
       position: absolute;
       top: 0;
       left: 0;
+      transition: opacity 0.6s ease-in-out;
     }
 
     #map-view {
-      display: none; /* Hidden by default */
+      opacity: 0;
+      pointer-events: none;
+      /* Videogame dark map styling filters */
+      filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+
+    /* Videogame UI Controls */
+    #ui-container {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(8, 14, 28, 0.85);
+      padding: 16px 22px;
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(0, 225, 255, 0.3);
+      box-shadow: 0 0 15px rgba(0, 225, 255, 0.15);
+    }
+
+    h2 {
+      font-size: 16px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #00e1ff;
+      margin-bottom: 6px;
+      text-shadow: 0 0 8px rgba(0, 225, 255, 0.5);
+    }
+
+    .btn-toggle {
+      background: linear-gradient(135deg, #0052d4, #4364f7);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    }
+
+    .btn-toggle:hover {
+      box-shadow: 0 0 12px rgba(0, 225, 255, 0.8);
+      transform: translateY(-1px);
     }
   </style>
 </head>
 <body>
 
   <div id="ui-container">
-    <h2>Interactive World</h2>
-    <p style="font-size: 12px; margin-bottom: 10px; color: #ccc;">Select View Mode:</p>
-    <button class="btn-toggle" id="toggle-btn" onclick="toggleView()">Switch to Mapamundi Mode</button>
+    <h2>Tactical Command</h2>
+    <p style="font-size: 12px; margin-bottom: 10px; color: #8a9bb8;">Mode: <span id="mode-text" style="color: #fff;">Planet (3D)</span></p>
+    <button class="btn-toggle" id="toggle-btn" onclick="toggleView()">Switch to Mapamundi</button>
   </div>
 
   <div id="view-container">
-    <!-- Task 1: Planet Mode Container -->
     <div id="globe-view"></div>
-
-    <!-- Task 2: Mapamundi Mode Container -->
     <div id="map-view"></div>
   </div>
 
   <script>
-    let currentMode = 'globe'; // 'globe' or 'map'
+    let isGlobe = true;
+    let isAnimating = false;
     let globeInstance = null;
     let mapInstance = null;
 
-    // --- TASK 1: Initialize 3D Globe Mode ---
+    // Initialize 3D Globe
     function initGlobe() {
       const container = document.getElementById('globe-view');
       
       globeInstance = Globe()
         (container)
-        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg') // Dark videogame vibe skin
         .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
         .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
         .showAtmosphere(true)
-        .atmosphereColor('lightskyblue')
-        .atmosphereDayScale(0.15);
+        .atmosphereColor('#00e1ff')
+        .atmosphereDayScale(0.18);
 
-      // Smooth auto-rotation
-      globeInstance.controls().autoRotate = true;
-      globeInstance.controls().autoRotateSpeed = 0.6;
+      // Task 3: Higher Sensibility Controls
+      const controls = globeInstance.controls();
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.8;
+      controls.zoomSpeed = 2.5; // High zoom sensibility
+      controls.rotateSpeed = 1.8; // High pan sensibility
     }
 
-    // --- TASK 2: Initialize 2D Mapamundi Mode ---
+    // Initialize 2D Map
     function initMap() {
-      // Leaflet initialized lazily on first toggle to optimize performance
       mapInstance = L.map('map-view', {
         center: [20, 0],
-        zoom: 2,
-        minZoom: 2
+        zoom: 2.5,
+        minZoom: 2,
+        zoomSnap: 0.25,
+        wheelPxPerZoomLevel: 30 // Task 3: High zoom sensibility for 2D map
       });
 
-      // OpenStreetMap Layer (Free, ready to plot custom geoJSON layers)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+      // Free CartoDB Dark Matter tile layer for identical dark videogame skin
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
       }).addTo(mapInstance);
     }
 
-    // --- Toggle Logic ---
+    // Task 2: Cinematic Animated Camera Transition
     function toggleView() {
+      if (isAnimating) return;
+      isAnimating = true;
+
       const globeEl = document.getElementById('globe-view');
       const mapEl = document.getElementById('map-view');
       const btn = document.getElementById('toggle-btn');
+      const modeText = document.getElementById('mode-text');
 
-      if (currentMode === 'globe') {
-        globeEl.style.display = 'none';
-        mapEl.style.display = 'block';
+      if (!mapInstance) initMap();
 
-        if (!mapInstance) {
-          initMap();
-        } else {
-          mapInstance.invalidateSize(); // Refreshes Leaflet rendering
-        }
+      if (isGlobe) {
+        // Step 1: Animated zoom-out on globe before fading
+        const currentAltitude = globeInstance.pointOfView().altitude;
+        
+        gsap.to(globeInstance.pointOfView(), {
+          altitude: currentAltitude * 1.8,
+          duration: 0.8,
+          ease: "power2.inOut",
+          onUpdate: () => globeInstance.pointOfView(globeInstance.pointOfView()),
+          onComplete: () => {
+            // Step 2: Smooth cross-fade to Mapamundi
+            globeEl.style.opacity = '0';
+            globeEl.style.pointerEvents = 'none';
+            mapEl.style.opacity = '1';
+            mapEl.style.pointerEvents = 'auto';
 
-        btn.innerText = 'Switch to Planet Mode';
-        currentMode = 'map';
+            mapInstance.invalidateSize();
+            btn.innerText = 'Switch to Planet Mode';
+            modeText.innerText = 'Mapamundi (2D)';
+            isGlobe = false;
+            isAnimating = false;
+          }
+        });
+
       } else {
-        mapEl.style.display = 'none';
-        globeEl.style.display = 'block';
+        // Step 1: Fade back to Globe
+        mapEl.style.opacity = '0';
+        mapEl.style.pointerEvents = 'none';
+        globeEl.style.opacity = '1';
+        globeEl.style.pointerEvents = 'auto';
 
-        btn.innerText = 'Switch to Mapamundi Mode';
-        currentMode = 'globe';
+        // Step 2: Animated zoom-in effect on Globe arrival
+        const targetPOV = globeInstance.pointOfView();
+        globeInstance.pointOfView({ altitude: 3 }, 0); // Start far away
+
+        gsap.to(globeInstance.pointOfView(), {
+          altitude: 1.8,
+          duration: 1.0,
+          ease: "power2.out",
+          onUpdate: () => globeInstance.pointOfView(globeInstance.pointOfView()),
+          onComplete: () => {
+            btn.innerText = 'Switch to Mapamundi Mode';
+            modeText.innerText = 'Planet (3D)';
+            isGlobe = true;
+            isAnimating = false;
+          }
+        });
       }
     }
 
-    // Initialize on load
     window.addEventListener('DOMContentLoaded', () => {
       initGlobe();
     });
