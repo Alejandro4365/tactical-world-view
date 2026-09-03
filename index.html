@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <!-- Globe.gl & Three.js for 3D Earth -->
-  <script src="https://unpkg.com/three"></script>
-  <script src="https://unpkg.com/globe.gl"></script>
+  <script src="https://unpkg.com/three@0.154.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/globe.gl@2.32.0"></script>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -45,7 +45,6 @@
       position: absolute;
       top: 0;
       left: 0;
-      transition: opacity 0.5s ease-in-out;
     }
 
     #map-view {
@@ -116,7 +115,7 @@
   </div>
 
   <script>
-    let isGlobe = true;
+   let isGlobe = true;
     let isAnimating = false;
     let globeInstance = null;
     let mapInstance = null;
@@ -124,7 +123,7 @@
     // Initialize 3D Globe
     function initGlobe() {
       const container = document.getElementById('globe-view');
-      
+
       globeInstance = Globe()
         (container)
         .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
@@ -137,8 +136,11 @@
       const controls = globeInstance.controls();
       controls.autoRotate = true;
       controls.autoRotateSpeed = 0.8;
-      controls.zoomSpeed = 2.5; 
-      controls.rotateSpeed = 1.8; 
+      // Faster / more responsive zoom & rotate
+      controls.zoomSpeed = 4.5;
+      controls.rotateSpeed = 2.5;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.15; // lower = snappier stop
     }
 
     // Initialize 2D Map
@@ -148,7 +150,9 @@
         zoom: 2,
         minZoom: 2,
         zoomSnap: 0.25,
-        wheelPxPerZoomLevel: 30
+        zoomDelta: 1.5,       // bigger jump per scroll step
+        wheelPxPerZoomLevel: 20, // lower = faster response to wheel
+        wheelDebounceTime: 20
       });
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -169,28 +173,31 @@
       const modeText = document.getElementById('mode-text');
 
       if (isGlobe) {
-        // Zoom out animation on Globe before fading
-        const currentAltitude = globeInstance.pointOfView().altitude;
-        
-        gsap.to(globeInstance.pointOfView(), {
-          altitude: currentAltitude * 1.6,
-          duration: 0.6,
+        // Use a proxy object for the animated value — don't animate the getter's return object directly
+        const pov = globeInstance.pointOfView();
+        const proxy = { altitude: pov.altitude };
+
+        gsap.to(proxy, {
+          altitude: proxy.altitude * 1.6,
+          duration: 0.4,
           ease: "power2.inOut",
-          onUpdate: () => globeInstance.pointOfView(globeInstance.pointOfView()),
+          onUpdate: () => {
+            const current = globeInstance.pointOfView();
+            globeInstance.pointOfView({ ...current, altitude: proxy.altitude }, 0);
+          },
           onComplete: () => {
-            // Show Map View
             globeEl.style.opacity = '0';
             globeEl.style.pointerEvents = 'none';
             mapEl.style.opacity = '1';
             mapEl.style.pointerEvents = 'auto';
 
-            // Lazy initialize map if needed & recalculate sizing
             if (!mapInstance) {
               initMap();
             }
+            // Give the fade transition a moment, then force Leaflet to recompute size
             setTimeout(() => {
               mapInstance.invalidateSize();
-            }, 100);
+            }, 150);
 
             btn.innerText = 'Switch to Planet Mode';
             modeText.innerText = 'Mapamundi (2D)';
@@ -200,20 +207,22 @@
         });
 
       } else {
-        // Fade back to Globe
         mapEl.style.opacity = '0';
         mapEl.style.pointerEvents = 'none';
         globeEl.style.opacity = '1';
         globeEl.style.pointerEvents = 'auto';
 
-        // Zoom in animation on Globe arrival
         globeInstance.pointOfView({ altitude: 3 }, 0);
 
-        gsap.to(globeInstance.pointOfView(), {
+        const proxy = { altitude: 3 };
+        gsap.to(proxy, {
           altitude: 1.8,
-          duration: 0.8,
+          duration: 0.5,
           ease: "power2.out",
-          onUpdate: () => globeInstance.pointOfView(globeInstance.pointOfView()),
+          onUpdate: () => {
+            const current = globeInstance.pointOfView();
+            globeInstance.pointOfView({ ...current, altitude: proxy.altitude }, 0);
+          },
           onComplete: () => {
             btn.innerText = 'Switch to Mapamundi Mode';
             modeText.innerText = 'Planet (3D)';
