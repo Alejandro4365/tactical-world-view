@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World View - Globe & Map</title>
+  
+  <!-- Leaflet CSS for 2D Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Globe.gl Dependencies for 3D Earth -->
+  <script src="https://unpkg.com/three"></script>
+  <script src="https://unpkg.com/globe.gl"></script>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+    }
+
+    /* Controls UI Overlay */
+    #ui-container {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-toggle {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .btn-toggle:hover {
+      background: #0056b3;
+    }
+
+    /* Container for Views */
+    #view-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    #globe-view, #map-view {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #map-view {
+      display: none; /* Hidden by default */
+    }
+  </style>
+</head>
+<body>
+
+  <div id="ui-container">
+    <h2>Interactive World</h2>
+    <p style="font-size: 12px; margin-bottom: 10px; color: #ccc;">Select View Mode:</p>
+    <button class="btn-toggle" id="toggle-btn" onclick="toggleView()">Switch to Mapamundi Mode</button>
+  </div>
+
+  <div id="view-container">
+    <!-- Task 1: Planet Mode Container -->
+    <div id="globe-view"></div>
+
+    <!-- Task 2: Mapamundi Mode Container -->
+    <div id="map-view"></div>
+  </div>
+
+  <script>
+    let currentMode = 'globe'; // 'globe' or 'map'
+    let globeInstance = null;
+    let mapInstance = null;
+
+    // --- TASK 1: Initialize 3D Globe Mode ---
+    function initGlobe() {
+      const container = document.getElementById('globe-view');
+      
+      globeInstance = Globe()
+        (container)
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+        .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+        .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+        .showAtmosphere(true)
+        .atmosphereColor('lightskyblue')
+        .atmosphereDayScale(0.15);
+
+      // Smooth auto-rotation
+      globeInstance.controls().autoRotate = true;
+      globeInstance.controls().autoRotateSpeed = 0.6;
+    }
+
+    // --- TASK 2: Initialize 2D Mapamundi Mode ---
+    function initMap() {
+      // Leaflet initialized lazily on first toggle to optimize performance
+      mapInstance = L.map('map-view', {
+        center: [20, 0],
+        zoom: 2,
+        minZoom: 2
+      });
+
+      // OpenStreetMap Layer (Free, ready to plot custom geoJSON layers)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mapInstance);
+    }
+
+    // --- Toggle Logic ---
+    function toggleView() {
+      const globeEl = document.getElementById('globe-view');
+      const mapEl = document.getElementById('map-view');
+      const btn = document.getElementById('toggle-btn');
+
+      if (currentMode === 'globe') {
+        globeEl.style.display = 'none';
+        mapEl.style.display = 'block';
+
+        if (!mapInstance) {
+          initMap();
+        } else {
+          mapInstance.invalidateSize(); // Refreshes Leaflet rendering
+        }
+
+        btn.innerText = 'Switch to Planet Mode';
+        currentMode = 'map';
+      } else {
+        mapEl.style.display = 'none';
+        globeEl.style.display = 'block';
+
+        btn.innerText = 'Switch to Mapamundi Mode';
+        currentMode = 'globe';
+      }
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      initGlobe();
+    });
+  </script>
+
+</body>
+</html>
