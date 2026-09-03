@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <!-- Globe.gl & Three.js for 3D Earth -->
-  <script src="https://unpkg.com/three@0.154.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/globe.gl@2.32.0"></script>
+  <script src="https://unpkg.com/three"></script>
+  <script src="https://unpkg.com/globe.gl"></script>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -45,20 +45,19 @@
       position: absolute;
       top: 0;
       left: 0;
+      transition: opacity 0.5s ease-in-out;
     }
 
     #map-view {
       opacity: 0;
       pointer-events: none;
       z-index: 1;
-      transform: scale(1.02);
     }
 
     #globe-view {
       opacity: 1;
       pointer-events: auto;
       z-index: 2;
-      transform: scale(1);
     }
 
     /* Videogame UI Controls */
@@ -122,15 +121,10 @@
     let globeInstance = null;
     let mapInstance = null;
 
-
-    // ==========================================
     // Initialize 3D Globe
-    // ==========================================
-
     function initGlobe() {
-
       const container = document.getElementById('globe-view');
-
+      
       globeInstance = Globe()
         (container)
         .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
@@ -140,216 +134,104 @@
         .atmosphereColor('#00e1ff')
         .atmosphereDayScale(0.18);
 
-
       const controls = globeInstance.controls();
-
       controls.autoRotate = true;
       controls.autoRotateSpeed = 0.8;
-
-      // Faster zoom
-      controls.zoomSpeed = 3.5;
-
-      // Faster rotation
-      controls.rotateSpeed = 2.5;
-
-      // Disable damping for immediate response
-      controls.enableDamping = false;
+      // Increased for faster, more responsive zoom/rotate feel
+      controls.zoomSpeed = 4.5;
+      controls.rotateSpeed = 2.6;
     }
 
-
-    // ==========================================
     // Initialize 2D Map
-    // ==========================================
-
     function initMap() {
-
       mapInstance = L.map('map-view', {
-
         center: [20, 0],
-
         zoom: 2,
-
         minZoom: 2,
-
         zoomSnap: 0.25,
-
-        // Faster zooming
-        zoomDelta: 1.5,
-
-        // Lower value = faster mouse wheel response
-        wheelPxPerZoomLevel: 30,
-
-        // Very low debounce
-        wheelDebounceTime: 10,
-
-        scrollWheelZoom: true,
-
-        zoomAnimation: true,
-
-        zoomAnimationThreshold: 8
-
+        wheelPxPerZoomLevel: 30
       });
 
-
-      L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        {
-          attribution: '&copy; OpenStreetMap &copy; CARTO',
-          subdomains: 'abcd',
-          maxZoom: 19
-        }
-      ).addTo(mapInstance);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }).addTo(mapInstance);
     }
 
-
-    // ==========================================
-    // Toggle Globe / Map
-    // ==========================================
-
+    // Toggle logic with camera animation
     function toggleView() {
-
       if (isAnimating) return;
-
       isAnimating = true;
-
 
       const globeEl = document.getElementById('globe-view');
       const mapEl = document.getElementById('map-view');
-
       const btn = document.getElementById('toggle-btn');
       const modeText = document.getElementById('mode-text');
 
-
-      // ------------------------------------------
-      // GLOBE -> MAP
-      // ------------------------------------------
-
       if (isGlobe) {
+        // Zoom out animation on Globe before fading.
+        // NOTE: pointOfView() returns a detached snapshot object each call,
+        // so GSAP must tween a proxy object and re-apply it every frame —
+        // tweening the snapshot directly (the old code) never touched the globe.
+        const startPov = globeInstance.pointOfView();
+        const povProxy = { altitude: startPov.altitude };
 
-        // Initialize map before showing it
-        if (!mapInstance) {
-          initMap();
-        }
-
-
-        // Make sure Leaflet calculates correct dimensions
-        mapInstance.invalidateSize();
-
-
-        // Put map above globe during transition
-        mapEl.style.zIndex = 2;
-        globeEl.style.zIndex = 1;
-
-        mapEl.style.pointerEvents = 'auto';
-
-
-        // Animate both views
-        gsap.timeline({
-
+        gsap.to(povProxy, {
+          altitude: startPov.altitude * 1.6,
+          duration: 0.6,
+          ease: "power2.inOut",
+          onUpdate: () => globeInstance.pointOfView({ altitude: povProxy.altitude }, 0),
           onComplete: () => {
-
+            // Show Map View
+            globeEl.style.opacity = '0';
             globeEl.style.pointerEvents = 'none';
+            mapEl.style.opacity = '1';
+            mapEl.style.pointerEvents = 'auto';
+
+            // Lazy initialize map if needed & recalculate sizing
+            if (!mapInstance) {
+              initMap();
+            }
+            setTimeout(() => {
+              mapInstance.invalidateSize();
+            }, 100);
 
             btn.innerText = 'Switch to Planet Mode';
-
             modeText.innerText = 'Mapamundi (2D)';
-
             isGlobe = false;
-
             isAnimating = false;
           }
+        });
 
-        })
-
-        .to(
-          globeEl,
-          {
-            opacity: 0,
-            scale: 0.98,
-            duration: 0.45,
-            ease: "power2.inOut"
-          },
-          0
-        )
-
-        .to(
-          mapEl,
-          {
-            opacity: 1,
-            scale: 1,
-            duration: 0.45,
-            ease: "power2.inOut"
-          },
-          0
-        );
-
-
-      }
-
-
-      // ------------------------------------------
-      // MAP -> GLOBE
-      // ------------------------------------------
-
-      else {
-
-        // Put globe above map
-        globeEl.style.zIndex = 2;
-        mapEl.style.zIndex = 1;
-
+      } else {
+        // Fade back to Globe
+        mapEl.style.opacity = '0';
+        mapEl.style.pointerEvents = 'none';
+        globeEl.style.opacity = '1';
         globeEl.style.pointerEvents = 'auto';
 
+        // Zoom in animation on Globe arrival (same proxy pattern as above)
+        globeInstance.pointOfView({ altitude: 3 }, 0);
+        const povProxy = { altitude: 3 };
 
-        gsap.timeline({
-
+        gsap.to(povProxy, {
+          altitude: 1.8,
+          duration: 0.8,
+          ease: "power2.out",
+          onUpdate: () => globeInstance.pointOfView({ altitude: povProxy.altitude }, 0),
           onComplete: () => {
-
-            mapEl.style.pointerEvents = 'none';
-
-            btn.innerText = 'Switch to Mapamundi';
-
+            btn.innerText = 'Switch to Mapamundi Mode';
             modeText.innerText = 'Planet (3D)';
-
             isGlobe = true;
-
             isAnimating = false;
           }
-
-        })
-
-        .to(
-          mapEl,
-          {
-            opacity: 0,
-            scale: 1.02,
-            duration: 0.45,
-            ease: "power2.inOut"
-          },
-          0
-        )
-
-        .to(
-          globeEl,
-          {
-            opacity: 1,
-            scale: 1,
-            duration: 0.45,
-            ease: "power2.inOut"
-          },
-          0
-        );
+        });
       }
     }
 
-
-    // ==========================================
-    // Start
-    // ==========================================
-
     window.addEventListener('DOMContentLoaded', () => {
-
       initGlobe();
-
     });
   </script>
 
