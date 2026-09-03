@@ -1,1317 +1,331 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-
-<meta
-name="viewport"
-content="width=device-width, initial-scale=1.0"
-
->
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tactical World View</title>
 
-  <!-- =====================================================
-       LEAFLET
-  ====================================================== -->
+  <!-- three.js core + OrbitControls (pinned r128 UMD build, mutually compatible) -->
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  >
-
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-  </script>
-
-  <!-- =====================================================
-       THREE.JS
-  ====================================================== -->
-
-  <script
-    src="https://unpkg.com/three@0.154.0/build/three.min.js">
-  </script>
-
-  <!-- =====================================================
-       GLOBE.GL
-  ====================================================== -->
-
-  <script
-    src="https://unpkg.com/globe.gl@2.32.0">
-  </script>
-
-  <!-- =====================================================
-       GSAP
-  ====================================================== -->
-
-  <script
-    src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js">
-  </script>
+  <!-- GSAP for the flat<->sphere morph tween -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
   <style>
-
-
-    /* =====================================================
-       GLOBAL
-    ====================================================== */
-
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-
-
-    html,
-    body {
-
+    body, html {
       width: 100%;
       height: 100%;
-
       overflow: hidden;
-
-      font-family:
-        "Segoe UI",
-        Tahoma,
-        Geneva,
-        Verdana,
-        sans-serif;
-
-      background:
-        #020611;
-
-      color:
-        white;
-
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #020611;
+      color: #fff;
     }
-
-
-    /* =====================================================
-       MAIN VIEW
-    ====================================================== */
 
     #view-container {
-
-      position:
-        relative;
-
-      width:
-        100vw;
-
-      height:
-        100vh;
-
-      overflow:
-        hidden;
-
+      width: 100vw;
+      height: 100vh;
+      position: relative;
     }
 
-
-    /* =====================================================
-       GLOBE + MAP
-    ====================================================== */
-
-    #globe-view,
-    #map-view {
-
-      position:
-        absolute;
-
-      top:
-        0;
-
-      left:
-        0;
-
-      width:
-        100%;
-
-      height:
-        100%;
-
-      transform-origin:
-        center center;
-
-      will-change:
-        transform,
-        opacity;
-
+    #view-container canvas {
+      display: block;
     }
-
-
-    #globe-view {
-
-      z-index:
-        2;
-
-      opacity:
-        1;
-
-      pointer-events:
-        auto;
-
-    }
-
-
-    #map-view {
-
-      z-index:
-        1;
-
-      opacity:
-        0;
-
-      pointer-events:
-        none;
-
-      background:
-        #020611;
-
-    }
-
-
-    /* =====================================================
-       LEAFLET
-    ====================================================== */
-
-    .leaflet-container {
-
-      background:
-        #020611;
-
-    }
-
-
-    /* Remove default Leaflet visual elements */
-
-    .leaflet-control-attribution {
-
-      display:
-        none;
-
-    }
-
-
-    /* =====================================================
-       UI
-    ====================================================== */
 
     #ui-container {
-
-      position:
-        absolute;
-
-      top:
-        20px;
-
-      left:
-        20px;
-
-      z-index:
-        10000;
-
-      background:
-
-        rgba(
-          8,
-          14,
-          28,
-          0.88
-        );
-
-      padding:
-
-        16px
-        22px;
-
-      border-radius:
-        10px;
-
-      backdrop-filter:
-        blur(8px);
-
-      border:
-
-        1px solid
-
-        rgba(
-          0,
-          225,
-          255,
-          0.3
-        );
-
-      box-shadow:
-
-        0
-        0
-        15px
-
-        rgba(
-          0,
-          225,
-          255,
-          0.15
-        );
-
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(8, 14, 28, 0.85);
+      padding: 16px 22px;
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(0, 225, 255, 0.3);
+      box-shadow: 0 0 15px rgba(0, 225, 255, 0.15);
     }
-
 
     h2 {
-
-      font-size:
-        16px;
-
-      letter-spacing:
-        1px;
-
-      text-transform:
-        uppercase;
-
-      color:
-        #00e1ff;
-
-      margin-bottom:
-        6px;
-
-      text-shadow:
-
-        0
-        0
-        8px
-
-        rgba(
-          0,
-          225,
-          255,
-          0.5
-        );
-
+      font-size: 16px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #00e1ff;
+      margin-bottom: 6px;
+      text-shadow: 0 0 8px rgba(0, 225, 255, 0.5);
     }
-
-
-    #mode-description {
-
-      font-size:
-        12px;
-
-      margin-bottom:
-        10px;
-
-      color:
-        #8a9bb8;
-
-    }
-
-
-    #mode-text {
-
-      color:
-        white;
-
-    }
-
 
     .btn-toggle {
-
-      background:
-
-        linear-gradient(
-          135deg,
-          #0052d4,
-          #4364f7
-        );
-
-      color:
-        white;
-
-      border:
-        none;
-
-      padding:
-
-        10px
-        16px;
-
-      font-size:
-        13px;
-
-      font-weight:
-        bold;
-
-      border-radius:
-        6px;
-
-      cursor:
-        pointer;
-
-      transition:
-
-        transform
-        0.15s
-        ease,
-
-        box-shadow
-        0.15s
-        ease;
-
-      box-shadow:
-
-        0
-        4px
-        10px
-
-        rgba(
-          0,
-          0,
-          0,
-          0.4
-        );
-
+      background: linear-gradient(135deg, #0052d4, #4364f7);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
     }
-
 
     .btn-toggle:hover {
-
-      box-shadow:
-
-        0
-        0
-        14px
-
-        rgba(
-          0,
-          225,
-          255,
-          0.9
-        );
-
-      transform:
-        translateY(-1px);
-
+      box-shadow: 0 0 12px rgba(0, 225, 255, 0.8);
+      transform: translateY(-1px);
     }
 
-
-    .btn-toggle:active {
-
-      transform:
-        scale(0.97);
-
+    .btn-toggle:disabled {
+      opacity: 0.6;
+      cursor: default;
     }
-
-
   </style>
-
 </head>
-
 <body>
 
-  <!-- =====================================================
-       UI
-  ====================================================== -->
-
   <div id="ui-container">
-
-```
-<h2>
-  Tactical Command
-</h2>
-
-
-<p id="mode-description">
-
-  Mode:
-
-  <span id="mode-text">
-
-    Planet (3D)
-
-  </span>
-
-</p>
-
-
-<button
-  class="btn-toggle"
-  id="toggle-btn"
->
-
-  Switch to Mapamundi
-
-</button>
-```
-
+    <h2>Tactical Command</h2>
+    <p style="font-size: 12px; margin-bottom: 10px; color: #8a9bb8;">Mode: <span id="mode-text" style="color: #fff;">Planet (3D)</span></p>
+    <button class="btn-toggle" id="toggle-btn" onclick="toggleView()">Switch to Mapamundi</button>
   </div>
 
-  <!-- =====================================================
-       MAP + GLOBE
-  ====================================================== -->
-
-  <div id="view-container">
-
-```
-<div id="globe-view"></div>
-
-<div id="map-view"></div>
-```
-
-  </div>
+  <div id="view-container"></div>
 
   <script>
+    // ---------------------------------------------------------------
+    // Mesh configuration
+    // ---------------------------------------------------------------
+    // High-resolution lat/lon grid shared by BOTH the flat map and the
+    // globe. Every vertex is computed twice, mathematically:
+    //   - once as a point on a flat equirectangular plane
+    //   - once as a point on a sphere, via standard spherical->cartesian
+    //     conversion (the same formula THREE.SphereGeometry itself uses)
+    // Toggling just interpolates each vertex between its two positions.
+    const LON_SEGMENTS = 256; // columns (very high resolution mesh)
+    const LAT_SEGMENTS = 128; // rows
+    const SPHERE_RADIUS = 100;
+    const FLAT_WIDTH = 340;   // world units for the flat map plane
+    const FLAT_HEIGHT = 170;
 
+    // Popular, widely-used high-resolution equirectangular Earth texture
+    // (NASA "Blue Marble" imagery, as redistributed by the three-globe project).
+    const EARTH_TEXTURE_URL = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
 
-    /* =====================================================
-       CONFIGURATION
-    ====================================================== */
-
-
-    /*
-      IMPORTANT:
-
-      This exact same texture is used by BOTH:
-
-      1. Globe.gl
-      2. Leaflet Mapamundi
-
-      Therefore the land/ocean imagery is identical.
-    */
-
-    const EARTH_TEXTURE =
-      "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
-
-
-    /*
-      The standard equirectangular Earth image covers:
-
-      longitude:
-      -180° to +180°
-
-      latitude:
-      -90° to +90°
-    */
-
-    const EARTH_BOUNDS = [
-
-      [-90, -180],
-
-      [90, 180]
-
-    ];
-
-
-
-    /* =====================================================
-       GLOBAL STATE
-    ====================================================== */
-
+    let scene, camera, renderer, controls, mesh;
+    let flatPositions, spherePositions; // Float32Array position buffers
     let isGlobe = true;
-
     let isAnimating = false;
-
-    let globeInstance = null;
-
-    let mapInstance = null;
-
-
-
-    /* =====================================================
-       INITIALIZE 3D GLOBE
-    ====================================================== */
-
-    function initGlobe() {
-
-
-      const container =
-
-        document.getElementById(
-          "globe-view"
-        );
-
-
-      globeInstance =
-
-        Globe()(container)
-
-          /*
-            EXACT SAME IMAGE
-            AS MAPAMUNDI
-          */
-
-          .globeImageUrl(
-            EARTH_TEXTURE
-          )
-
-
-          .bumpImageUrl(
-            "https://unpkg.com/three-globe/example/img/earth-topology.png"
-          )
-
-
-          .backgroundImageUrl(
-            "https://unpkg.com/three-globe/example/img/night-sky.png"
-          )
-
-
-          .showAtmosphere(
-            true
-          )
-
-
-          .atmosphereColor(
-            "#00e1ff"
-          )
-
-
-          .atmosphereDayScale(
-            0.18
-          );
-
-
-
-      const controls =
-
-        globeInstance.controls();
-
-
-
-      /* =================================================
-         AUTO ROTATION
-      ================================================= */
-
-      controls.autoRotate = true;
-
-      controls.autoRotateSpeed = 0.8;
-
-
-
-      /* =================================================
-         RESPONSIVE CONTROLS
-      ================================================= */
-
-      controls.zoomSpeed = 4.5;
-
-      controls.rotateSpeed = 2.5;
-
-
-
-      /*
-        Disable damping.
-
-        This gives immediate response when:
-
-        - rotating
-        - zooming
-        - stopping movement
-      */
-
-      controls.enableDamping = false;
-
-
-    }
-
-
-
-    /* =====================================================
-       INITIALIZE MAPAMUNDI
-    ====================================================== */
-
-    function initMap() {
-
-
-      mapInstance =
-
-        L.map(
-
-          "map-view",
-
-          {
-
-            /*
-              Simple equirectangular projection.
-
-              This is important because the texture
-              itself is equirectangular.
-            */
-
-            crs:
-              L.CRS.Simple,
-
-
-            center:
-
-              [
-
-                0,
-
-                0
-
-              ],
-
-
-            zoom:
-
-              1,
-
-
-            minZoom:
-
-              -2,
-
-
-            maxZoom:
-
-              4,
-
-
-            zoomSnap:
-
-              0.1,
-
-
-            /*
-              Fast zoom.
-            */
-
-            zoomDelta:
-
-              0.8,
-
-
-            /*
-              Lower = more responsive.
-            */
-
-            wheelPxPerZoomLevel:
-
-              20,
-
-
-            wheelDebounceTime:
-
-              10,
-
-
-            scrollWheelZoom:
-
-              true,
-
-
-            zoomAnimation:
-
-              true,
-
-            zoomControl:
-
-              false,
-
-            attributionControl:
-
-              false
-
-          }
-
-        );
-
-
-
-      /*
-        DISPLAY THE EXACT SAME TEXTURE
-        USED ON THE 3D GLOBE.
-      */
-
-      L.imageOverlay(
-
-        EARTH_TEXTURE,
-
-        EARTH_BOUNDS,
-
-        {
-
-          interactive:
-            false
-
+    const morphState = { t: 0 }; // 0 = fully flat map, 1 = fully sphere
+
+    function buildGrid() {
+      const geometry = new THREE.BufferGeometry();
+
+      const vertsPerRow = LON_SEGMENTS + 1;
+      const vertsPerCol = LAT_SEGMENTS + 1;
+      const vertexCount = vertsPerRow * vertsPerCol;
+
+      flatPositions = new Float32Array(vertexCount * 3);
+      spherePositions = new Float32Array(vertexCount * 3);
+      const uvs = new Float32Array(vertexCount * 2);
+
+      let vi = 0;
+      for (let row = 0; row <= LAT_SEGMENTS; row++) {
+        // v: 0 at north pole (top of texture), 1 at south pole (bottom)
+        const v = row / LAT_SEGMENTS;
+        const lat = 90 - v * 180;              // degrees, +90 -> -90
+        const phi = v * Math.PI;               // polar angle, 0 -> PI
+
+        for (let col = 0; col <= LON_SEGMENTS; col++) {
+          // u: 0 at west edge (-180), 1 at east edge (+180)
+          const u = col / LON_SEGMENTS;
+          const lon = u * 360 - 180;           // degrees, -180 -> +180
+          const theta = u * Math.PI * 2;       // azimuth, 0 -> 2PI
+
+          // --- Flat equirectangular plane, purely from lon/lat ---
+          const fx = (lon / 180) * (FLAT_WIDTH / 2);
+          const fy = (lat / 90) * (FLAT_HEIGHT / 2);
+          const fz = 0;
+
+          // --- Sphere, via spherical -> cartesian conversion ---
+          // Matches THREE's own UV-sphere convention so the texture
+          // lines up identically in both flat and sphere form.
+          const sx = -SPHERE_RADIUS * Math.sin(phi) * Math.cos(theta);
+          const sy = SPHERE_RADIUS * Math.cos(phi);
+          const sz = SPHERE_RADIUS * Math.sin(phi) * Math.sin(theta);
+
+          flatPositions[vi * 3 + 0] = fx;
+          flatPositions[vi * 3 + 1] = fy;
+          flatPositions[vi * 3 + 2] = fz;
+
+          spherePositions[vi * 3 + 0] = sx;
+          spherePositions[vi * 3 + 1] = sy;
+          spherePositions[vi * 3 + 2] = sz;
+
+          uvs[vi * 2 + 0] = u;
+          uvs[vi * 2 + 1] = v;
+
+          vi++;
         }
-
-      )
-
-      .addTo(
-        mapInstance
-      );
-
-
-
-      /*
-        Fit map exactly to Earth texture.
-      */
-
-      mapInstance.fitBounds(
-        EARTH_BOUNDS,
-
-        {
-
-          animate:
-            false
-
-        }
-
-      );
-
-
-    }
-
-
-
-    /* =====================================================
-       PLANET -> MAPAMUNDI
-    ====================================================== */
-
-    function switchToMap() {
-
-
-      const globeEl =
-
-        document.getElementById(
-          "globe-view"
-        );
-
-
-      const mapEl =
-
-        document.getElementById(
-          "map-view"
-        );
-
-
-      const button =
-
-        document.getElementById(
-          "toggle-btn"
-        );
-
-
-      const modeText =
-
-        document.getElementById(
-          "mode-text"
-        );
-
-
-
-      /*
-        Initialize map once.
-      */
-
-      if (
-        !mapInstance
-      ) {
-
-        initMap();
-
       }
 
+      const startPositions = new Float32Array(spherePositions);
 
-
-      /*
-        Ensure Leaflet has correct dimensions.
-      */
-
-      mapInstance.invalidateSize(
-        true
-      );
-
-
-      mapInstance.fitBounds(
-        EARTH_BOUNDS,
-
-        {
-
-          animate:
-            false
-
+      const indices = [];
+      for (let row = 0; row < LAT_SEGMENTS; row++) {
+        for (let col = 0; col < LON_SEGMENTS; col++) {
+          const a = row * vertsPerRow + col;
+          const b = a + 1;
+          const c = a + vertsPerRow;
+          const d = c + 1;
+          indices.push(a, c, b);
+          indices.push(b, c, d);
         }
+      }
 
-      );
+      geometry.setIndex(indices);
+      geometry.setAttribute('position', new THREE.BufferAttribute(startPositions, 3));
+      geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      geometry.computeVertexNormals();
 
-
-
-      /*
-        Put map above globe.
-      */
-
-      mapEl.style.zIndex =
-        2;
-
-      globeEl.style.zIndex =
-        1;
-
-
-      mapEl.style.pointerEvents =
-        "auto";
-
-
-
-      /*
-        Starting state of map.
-      */
-
-      gsap.set(
-
-        mapEl,
-
-        {
-
-          opacity:
-            0,
-
-          scale:
-            1.04
-
-        }
-
-      );
-
-
-      gsap.set(
-
-        globeEl,
-
-        {
-
-          opacity:
-            1,
-
-          scale:
-            1,
-
-          scaleX:
-            1,
-
-          scaleY:
-            1
-
-        }
-
-      );
-
-
-
-      const timeline =
-
-        gsap.timeline(
-
-          {
-
-            onComplete: () => {
-
-
-              globeEl.style.pointerEvents =
-                "none";
-
-
-              /*
-                Keep map active.
-              */
-
-              mapEl.style.pointerEvents =
-                "auto";
-
-
-              button.innerText =
-                "Switch to Planet";
-
-
-              modeText.innerText =
-                "Mapamundi (2D)";
-
-
-              isGlobe =
-                false;
-
-
-              isAnimating =
-                false;
-
-
-            }
-
-          }
-
-        );
-
-
-
-      /*
-        Globe visually expands
-        and flattens.
-      */
-
-      timeline.to(
-
-        globeEl,
-
-        {
-
-          opacity:
-            0,
-
-          scale:
-            1.15,
-
-          scaleX:
-            1.3,
-
-          scaleY:
-            0.82,
-
-          duration:
-            0.65,
-
-          ease:
-            "power3.inOut"
-
-        },
-
-        0
-
-      );
-
-
-
-      /*
-        Same texture appears
-        as a flat world.
-      */
-
-      timeline.to(
-
-        mapEl,
-
-        {
-
-          opacity:
-            1,
-
-          scale:
-            1,
-
-          duration:
-            0.65,
-
-          ease:
-            "power3.out"
-
-        },
-
-        0.1
-
-      );
-
-
+      return geometry;
     }
 
+    function init() {
+      const container = document.getElementById('view-container');
 
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x020611);
 
-    /* =====================================================
-       MAPAMUNDI -> PLANET
-    ====================================================== */
-
-    function switchToGlobe() {
-
-
-      const globeEl =
-
-        document.getElementById(
-          "globe-view"
-        );
-
-
-      const mapEl =
-
-        document.getElementById(
-          "map-view"
-        );
-
-
-      const button =
-
-        document.getElementById(
-          "toggle-btn"
-        );
-
-
-      const modeText =
-
-        document.getElementById(
-          "mode-text"
-        );
-
-
-
-      /*
-        Globe goes above map.
-      */
-
-      globeEl.style.zIndex =
-        2;
-
-      mapEl.style.zIndex =
-        1;
-
-
-      globeEl.style.pointerEvents =
-        "auto";
-
-
-      mapEl.style.pointerEvents =
-        "auto";
-
-
-
-      /*
-        Globe starts
-        visually flattened.
-      */
-
-      gsap.set(
-
-        globeEl,
-
-        {
-
-          opacity:
-            0,
-
-          scale:
-            1.15,
-
-          scaleX:
-            1.3,
-
-          scaleY:
-            0.82
-
-        }
-
+      camera = new THREE.PerspectiveCamera(
+        50, container.clientWidth / container.clientHeight, 0.1, 5000
       );
+      camera.position.set(0, 0, 260);
 
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
 
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+      sun.position.set(5, 3, 5);
+      scene.add(sun);
 
-      const timeline =
+      const geometry = buildGrid();
+      const texture = new THREE.TextureLoader().load(EARTH_TEXTURE_URL);
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const material = new THREE.MeshPhongMaterial({ map: texture, shininess: 5 });
 
-        gsap.timeline(
+      mesh = new THREE.Mesh(geometry, material);
+      scene.add(mesh);
 
-          {
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.8;
+      // Increased for fast, responsive zoom/rotate feel
+      controls.zoomSpeed = 4.5;
+      controls.rotateSpeed = 2.6;
+      controls.panSpeed = 1.6;
+      controls.minDistance = 105;
+      controls.maxDistance = 900;
 
-            onComplete: () => {
-
-
-              mapEl.style.pointerEvents =
-                "none";
-
-
-              globeEl.style.pointerEvents =
-                "auto";
-
-
-              button.innerText =
-                "Switch to Mapamundi";
-
-
-              modeText.innerText =
-                "Planet (3D)";
-
-
-              isGlobe =
-                true;
-
-
-              isAnimating =
-                false;
-
-
-            }
-
-          }
-
-        );
-
-
-
-      /*
-        Map fades away.
-      */
-
-      timeline.to(
-
-        mapEl,
-
-        {
-
-          opacity:
-            0,
-
-          scale:
-            1.06,
-
-          duration:
-            0.5,
-
-          ease:
-            "power2.inOut"
-
-        },
-
-        0
-
-      );
-
-
-
-      /*
-        Globe reforms.
-      */
-
-      timeline.to(
-
-        globeEl,
-
-        {
-
-          opacity:
-            1,
-
-          scale:
-            1,
-
-          scaleX:
-            1,
-
-          scaleY:
-            1,
-
-          duration:
-            0.7,
-
-          ease:
-            "power3.out"
-
-        },
-
-        0.08
-
-      );
-
-
+      window.addEventListener('resize', onResize);
+      animate();
     }
 
+    function onResize() {
+      const container = document.getElementById('view-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
 
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
 
-    /* =====================================================
-       MAIN TOGGLE
-    ====================================================== */
+    // Rewrites the mesh's position buffer as a per-vertex lerp between
+    // the flat-map positions and the sphere positions, driven by t (0..1).
+    function applyMorph(t) {
+      const posAttr = mesh.geometry.attributes.position;
+      const arr = posAttr.array;
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = flatPositions[i] + (spherePositions[i] - flatPositions[i]) * t;
+      }
+      posAttr.needsUpdate = true;
+      mesh.geometry.computeVertexNormals();
+    }
 
     function toggleView() {
+      if (isAnimating) return;
+      isAnimating = true;
 
+      const btn = document.getElementById('toggle-btn');
+      const modeText = document.getElementById('mode-text');
+      btn.disabled = true;
+      controls.autoRotate = false;
 
-      if (
-        isAnimating
-      ) {
+      if (isGlobe) {
+        // Sphere -> flat map: pull the camera back first, then morph,
+        // then settle into a top-down framing.
+        gsap.timeline({
+          onComplete: () => {
+            controls.enableRotate = false;
+            controls.minDistance = 60;
+            controls.maxDistance = 1200;
+            btn.innerText = 'Switch to Planet Mode';
+            modeText.innerText = 'Mapamundi (2D)';
+            btn.disabled = false;
+            isGlobe = false;
+            isAnimating = false;
+          }
+        })
+        .to(camera.position, { x: 0, y: 0, z: 420, duration: 0.6, ease: 'power2.inOut',
+            onUpdate: () => camera.lookAt(0, 0, 0) })
+        .to(morphState, {
+            t: 0, duration: 0.9, ease: 'power2.inOut',
+            onUpdate: () => applyMorph(morphState.t)
+          }, '-=0.15')
+        .to(camera.position, { x: 0, y: 0, z: 260, duration: 0.5, ease: 'power2.out',
+            onUpdate: () => camera.lookAt(0, 0, 0) }, '-=0.1');
 
-        return;
+      } else {
+        // Flat map -> sphere: morph back, then let free orbit resume.
+        controls.enableRotate = true;
+        controls.minDistance = 105;
+        controls.maxDistance = 900;
 
+        gsap.timeline({
+          onComplete: () => {
+            controls.autoRotate = true;
+            btn.innerText = 'Switch to Mapamundi Mode';
+            modeText.innerText = 'Planet (3D)';
+            btn.disabled = false;
+            isGlobe = true;
+            isAnimating = false;
+          }
+        })
+        .to(camera.position, { x: 0, y: 0, z: 320, duration: 0.5, ease: 'power2.inOut',
+            onUpdate: () => camera.lookAt(0, 0, 0) })
+        .to(morphState, {
+            t: 1, duration: 0.9, ease: 'power2.inOut',
+            onUpdate: () => applyMorph(morphState.t)
+          }, '-=0.1')
+        .to(camera.position, { x: 0, y: 0, z: 260, duration: 0.6, ease: 'power2.out',
+            onUpdate: () => camera.lookAt(0, 0, 0) }, '-=0.2');
       }
-
-
-      isAnimating =
-        true;
-
-
-
-      if (
-        isGlobe
-      ) {
-
-        switchToMap();
-
-      }
-
-      else {
-
-        switchToGlobe();
-
-      }
-
-
     }
 
-
-
-    /* =====================================================
-       BUTTON
-    ====================================================== */
-
-    document
-      .getElementById(
-        "toggle-btn"
-      )
-      .addEventListener(
-
-        "click",
-
-        toggleView
-
-      );
-
-
-
-    /* =====================================================
-       START
-    ====================================================== */
-
-    window.addEventListener(
-
-      "DOMContentLoaded",
-
-      () => {
-
-
-        initGlobe();
-
-
-      }
-
-    );
-
-
-
-    /* =====================================================
-       RESIZE
-    ====================================================== */
-
-    window.addEventListener(
-
-      "resize",
-
-      () => {
-
-
-        if (
-          mapInstance
-        ) {
-
-          mapInstance.invalidateSize(
-            true
-          );
-
-        }
-
-
-      }
-
-    );
-
-
+    window.addEventListener('DOMContentLoaded', () => {
+      morphState.t = 1; // start fully spherical, matches "Planet (3D)" default
+      init();
+    });
   </script>
 
 </body>
