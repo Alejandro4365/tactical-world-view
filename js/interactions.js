@@ -31,7 +31,6 @@ function toggleView() {
     gsap.timeline({
       onComplete: () => {
         controls.noRotate = true;
-        controls.noPan = false; // allow left-button pan in map mode (updateLeftMouseMapping sets which button)
         controls.minDistance = 60;
         controls.maxDistance = 1200;
         btn.innerText = 'Switch to Planet Mode';
@@ -113,12 +112,22 @@ function isFullscreenActive() {
 // left inert (-1, i.e. STATE.NONE) so it neither pans nor toggles.
 function updateLeftMouseMapping() {
   if (!controls) return;
+  // TrackballControls' mouseButtons keys are "the button code that
+  // triggers this action", not "the action for this physical button" -
+  // e.g. mouseButtons.RIGHT holds the button code that fires PAN. To
+  // route the *physical* left button (code 0) into PAN, we have to
+  // point the PAN slot (RIGHT) at 0 and move the ROTATE slot (LEFT)
+  // off of 0 so it stops intercepting left-clicks first. Both slots
+  // are set in every branch so no state leaks between modes.
   if (isGlobe) {
     controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   } else if (isFullscreenActive()) {
     controls.mouseButtons.LEFT = -1;
+    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   } else {
     controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+    controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
   }
 }
 
