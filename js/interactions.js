@@ -31,6 +31,7 @@ function toggleView() {
     gsap.timeline({
       onComplete: () => {
         controls.noRotate = true;
+        controls.noPan = false; // allow left-button pan in map mode (updateLeftMouseMapping sets which button)
         controls.minDistance = 60;
         controls.maxDistance = 1200;
         btn.innerText = 'Switch to Planet Mode';
