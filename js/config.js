@@ -33,13 +33,10 @@ const SKINS = {
   tactical:   { label: 'Tactical Dark', url: null, color: 0x081226 }
 };
 
-// --- Country borders / fills / names layer constants ---
-const COUNTRY_FILL_OPACITY = 0.4;
+// --- Country borders / names layer constants ---
 const COUNTRY_BORDER_COLOR = 0xf2f8ff;
-const SPHERE_FILL_RADIUS = SPHERE_RADIUS * 1.002;
 const SPHERE_BORDER_RADIUS = SPHERE_RADIUS * 1.004;
 const SPHERE_LABEL_RADIUS = SPHERE_RADIUS * 1.01;
-const FLAT_FILL_Z = 0.5;
 const FLAT_BORDER_Z = 0.9;
 const FLAT_LABEL_Z = 1.4;
 
