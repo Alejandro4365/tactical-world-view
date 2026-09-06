@@ -46,6 +46,10 @@ function init() {
   controls.dynamicDampingFactor = 0.12;
   controls.minDistance = 105;
   controls.maxDistance = 900;
+  // Left button rotates by default (globe mode). interactions.js flips
+  // this to PAN in map mode (and to inert while fullscreen) - see
+  // updateLeftMouseMapping().
+  controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 
   window.addEventListener('resize', onResize);
   animate();

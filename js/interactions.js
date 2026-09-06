@@ -38,6 +38,7 @@ function toggleView() {
         btn.disabled = false;
         isGlobe = false;
         isAnimating = false;
+        updateLeftMouseMapping();
       }
     })
     .to(camera.position, { x: 0, y: 0, z: fitDistance * 1.3, duration: 0.6, ease: 'power2.inOut',
@@ -67,6 +68,7 @@ function toggleView() {
         btn.disabled = false;
         isGlobe = true;
         isAnimating = false;
+        updateLeftMouseMapping();
       }
     })
     .to(camera.position, { x: 0, y: 0, z: 320, duration: 0.5, ease: 'power2.inOut',
@@ -103,6 +105,22 @@ function isFullscreenActive() {
   );
 }
 
+// --- Left-button behavior per mode ---
+// Globe mode: left button always rotates the globe (unaffected by
+// fullscreen). Map mode: left button pans the flat map, but only
+// when the page/element is NOT in fullscreen - while fullscreen it's
+// left inert (-1, i.e. STATE.NONE) so it neither pans nor toggles.
+function updateLeftMouseMapping() {
+  if (!controls) return;
+  if (isGlobe) {
+    controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+  } else if (isFullscreenActive()) {
+    controls.mouseButtons.LEFT = -1;
+  } else {
+    controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+  }
+}
+
 function onViewMouseDown(e) {
   if (e.button !== 0) return; // left button only
   mouseDownPos = { x: e.clientX, y: e.clientY };
@@ -128,10 +146,18 @@ function onViewMouseUp(e) {
   toggleView();
 }
 
-// Wires up the click-to-toggle listeners on the 3D view. Called once
-// from main.js after the renderer's canvas exists.
-function initClickToToggle() {
+// Wires up the click-to-toggle listeners on the 3D view, plus the
+// fullscreen watcher that keeps the left-button mapping in sync (the
+// user can enter/exit fullscreen at any time, not just around a
+// toggleView() animation). Called once from main.js after the
+// renderer's canvas exists.
+function initInteractions() {
   const el = renderer.domElement;
   el.addEventListener('mousedown', onViewMouseDown);
   el.addEventListener('mouseup', onViewMouseUp);
+
+  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange']
+    .forEach((evt) => document.addEventListener(evt, updateLeftMouseMapping));
+
+  updateLeftMouseMapping(); // set initial state (globe mode -> rotate)
 }
