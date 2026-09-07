@@ -17,6 +17,14 @@ function toggleView() {
   if (isAnimating) return;
   isAnimating = true;
 
+  // A previous pan in map mode can leave controls.target off-center.
+  // camera.position gets reset to (0,0,z) below either way, but
+  // target was never touched - so without this, the camera ends up
+  // looking at a stale off-axis point, which is what makes the view
+  // look tilted/off-center after toggling. Reset it before either
+  // direction's animation starts.
+  controls.target.set(0, 0, 0);
+
   const btn = document.getElementById('toggle-btn');
   const modeText = document.getElementById('mode-text');
   btn.disabled = true;
@@ -117,27 +125,31 @@ function isFullscreenActive() {
 
 // --- Left-button behavior per mode ---
 // Globe mode: left button always rotates the globe (unaffected by
-// fullscreen). Map mode: left button pans the flat map, but only
-// when the page/element is NOT in fullscreen - while fullscreen it's
-// left inert (-1, i.e. STATE.NONE) so it neither pans nor toggles.
+// fullscreen); the globe never pans, on any input. Map mode: left
+// button pans the flat map, but only when the page/element is NOT in
+// fullscreen - while fullscreen it's left inert (-1, i.e. STATE.NONE)
+// so it neither pans nor toggles.
 function updateLeftMouseMapping() {
   if (!controls) return;
-  // TrackballControls' mouseButtons keys are "the button code that
-  // triggers this action", not "the action for this physical button" -
-  // e.g. mouseButtons.RIGHT holds the button code that fires PAN. To
-  // route the *physical* left button (code 0) into PAN, we have to
-  // point the PAN slot (RIGHT) at 0 and move the ROTATE slot (LEFT)
-  // off of 0 so it stops intercepting left-clicks first. Both slots
-  // are set in every branch so no state leaks between modes.
+  // noPan is the actual master switch for panning in this library -
+  // checked once in update() regardless of which button or input
+  // device triggered it - so this is what guarantees the globe never
+  // pans, rather than relying on the mouseButtons routing below.
+  controls.noPan = isGlobe;
+
   if (isGlobe) {
     controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
-    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   } else if (isFullscreenActive()) {
     controls.mouseButtons.LEFT = -1;
-    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   } else {
-    controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
-    controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+    // TrackballControls' mouseButtons keys hold "the button code that
+    // triggers this action", not "the action for this physical
+    // button" - mouseButtons.RIGHT is the code that fires PAN. To
+    // route the physical left button (code 0) into PAN, point RIGHT
+    // at 0 and move LEFT off of 0 (to an invalid code) so it can't
+    // intercept left-clicks into ROTATE first.
+    controls.mouseButtons.LEFT = -1;
+    controls.mouseButtons.RIGHT = 0;
   }
 }
 
@@ -148,7 +160,13 @@ function updateLeftMouseMapping() {
 // together, rather than fighting it after the fact with a fixed
 // camera position. No-op in globe mode, which has no edges to hit.
 function clampMapPan() {
-  if (isGlobe || !controls) return;
+  // isGlobe !== false (not just "falsy") - if it's ever undefined
+  // during early frames, before whatever sets it is defined, we do
+  // not want to fall through to FLAT_WIDTH, which throws if it isn't
+  // defined yet, when that happens, since throwing here happens
+  // before renderer.render() in animate() and would blank the canvas
+  // permanently.
+  if (isGlobe !== false || !controls) return;
   const maxX = FLAT_WIDTH / 2;
   const maxY = FLAT_HEIGHT / 2;
   const tx = Math.min(maxX, Math.max(-maxX, controls.target.x));
