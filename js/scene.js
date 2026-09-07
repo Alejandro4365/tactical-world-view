@@ -74,7 +74,6 @@ function animate() {
     mesh.rotation.y += AUTO_ROTATE_SPEED;
   }
   controls.update();
-  clampMapPan();
   renderer.render(scene, camera);
 }
 

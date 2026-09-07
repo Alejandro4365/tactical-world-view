@@ -6,13 +6,6 @@
 //    and only when the page/element is NOT in fullscreen)
 // =================================================================
 
-// Panning feels too twitchy at the globe's default panSpeed once
-// applied to the flat map, so map mode uses a slower rate. The
-// globe's own speed is captured the first time we leave it rather
-// than duplicated here, so it stays in sync with scene.js.
-const MAP_PAN_SPEED = 0.6;
-let globePanSpeed = null;
-
 function toggleView() {
   if (isAnimating) return;
   isAnimating = true;
@@ -38,8 +31,7 @@ function toggleView() {
     gsap.timeline({
       onComplete: () => {
         controls.noRotate = true;
-        if (globePanSpeed === null) globePanSpeed = controls.panSpeed;
-        controls.panSpeed = MAP_PAN_SPEED;
+        controls.noPan = false; // allow left-button pan in map mode (updateLeftMouseMapping sets which button)
         controls.minDistance = 60;
         controls.maxDistance = 1200;
         btn.innerText = 'Switch to Planet Mode';
@@ -72,7 +64,6 @@ function toggleView() {
     gsap.timeline({
       onComplete: () => {
         autoRotateEnabled = true;
-        if (globePanSpeed !== null) controls.panSpeed = globePanSpeed;
         btn.innerText = 'Switch to Mapamundi Mode';
         modeText.innerText = 'Planet (3D)';
         btn.disabled = false;
@@ -122,44 +113,13 @@ function isFullscreenActive() {
 // left inert (-1, i.e. STATE.NONE) so it neither pans nor toggles.
 function updateLeftMouseMapping() {
   if (!controls) return;
-  // TrackballControls' mouseButtons keys are "the button code that
-  // triggers this action", not "the action for this physical button" -
-  // e.g. mouseButtons.RIGHT holds the button code that fires PAN. To
-  // route the *physical* left button (code 0) into PAN, we have to
-  // point the PAN slot (RIGHT) at 0 and move the ROTATE slot (LEFT)
-  // off of 0 so it stops intercepting left-clicks first. Both slots
-  // are set in every branch so no state leaks between modes.
   if (isGlobe) {
     controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
-    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   } else if (isFullscreenActive()) {
     controls.mouseButtons.LEFT = -1;
-    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   } else {
     controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
-    controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
   }
-}
-
-// Keeps flat-map panning from dragging the view past the map's own
-// edges. Clamps controls.target (the pan pivot) to the map's extent,
-// then shifts the camera by the same delta so it stays directly
-// above the target - matches how TrackballControls pans both
-// together, rather than fighting it after the fact with a fixed
-// camera position. No-op in globe mode, which has no edges to hit.
-function clampMapPan() {
-  if (isGlobe || !controls) return;
-  const maxX = FLAT_WIDTH / 2;
-  const maxY = FLAT_HEIGHT / 2;
-  const tx = Math.min(maxX, Math.max(-maxX, controls.target.x));
-  const ty = Math.min(maxY, Math.max(-maxY, controls.target.y));
-  const dx = tx - controls.target.x;
-  const dy = ty - controls.target.y;
-  if (dx === 0 && dy === 0) return;
-  controls.target.x = tx;
-  controls.target.y = ty;
-  camera.position.x += dx;
-  camera.position.y += dy;
 }
 
 function onViewMouseDown(e) {
