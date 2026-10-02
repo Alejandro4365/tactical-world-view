@@ -10,6 +10,14 @@ function toggleView() {
   if (isAnimating) return;
   isAnimating = true;
 
+  // A previous pan in map mode can leave controls.target off-center.
+  // camera.position gets reset to (0,0,z) below either way, but
+  // target was never touched - so without this, the camera ends up
+  // looking at a stale off-axis point, which is what makes the view
+  // look tilted/off-center after toggling. Reset it before either
+  // direction's animation starts.
+  controls.target.set(0, 0, 0);
+
   const btn = document.getElementById('toggle-btn');
   const modeText = document.getElementById('mode-text');
   btn.disabled = true;
@@ -33,7 +41,8 @@ function toggleView() {
         controls.noRotate = true;
         controls.noPan = false; // allow left-button pan in map mode (updateLeftMouseMapping sets which button)
         controls.minDistance = 60;
-        controls.maxDistance = 1200;
+        // Zooming out further than "map fits the page" would shrink the map off the page edges
+        controls.maxDistance = getFlatFitDistance();
         btn.innerText = 'Switch to Planet Mode';
         modeText.innerText = 'Mapamundi (2D)';
         btn.disabled = false;
@@ -57,8 +66,9 @@ function toggleView() {
   } else {
     // Flat map -> sphere: morph back, then let free rotation resume.
     controls.noRotate = false;
-    controls.minDistance = 105;
-    controls.maxDistance = 900;
+    controls.minDistance = 60;
+    // Zooming out further than "map fits the page" would shrink the map off the page edges
+    controls.maxDistance = getFlatFitDistance();
     const upTarget = { x: camera.up.x, y: camera.up.y, z: camera.up.z };
 
     gsap.timeline({
@@ -108,18 +118,80 @@ function isFullscreenActive() {
 
 // --- Left-button behavior per mode ---
 // Globe mode: left button always rotates the globe (unaffected by
-// fullscreen). Map mode: left button pans the flat map, but only
-// when the page/element is NOT in fullscreen - while fullscreen it's
-// left inert (-1, i.e. STATE.NONE) so it neither pans nor toggles.
+// fullscreen); the globe never pans, on any input. Map mode: left
+// button pans the flat map, but only when the page/element is NOT in
+// fullscreen - while fullscreen it's left inert (-1, i.e. STATE.NONE)
+// so it neither pans nor toggles.
 function updateLeftMouseMapping() {
   if (!controls) return;
+  // noPan is the master switch: the globe never pans.
+  controls.noPan = isGlobe;
+
   if (isGlobe) {
     controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
   } else if (isFullscreenActive()) {
     controls.mouseButtons.LEFT = -1;
   } else {
-    controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+    // mouseButtons values are button codes: route physical left (0) into PAN
+    controls.mouseButtons.LEFT = -1;
+    controls.mouseButtons.RIGHT = 0;
   }
+}
+
+// Runs every frame after controls.update().
+//  - Globe: sphere center stays at the page center (target pinned to origin).
+//  - Map: camera always faces the xy plane, and the visible window can
+//    never leave the map's bounds.
+function enforceViewConstraints() {
+  if (!controls || isAnimating) return;
+
+  if (isGlobe) {
+    // Shift camera and target together so view direction is unchanged
+    if (controls.target.lengthSq() > 0) {
+      camera.position.sub(controls.target);
+      controls.target.set(0, 0, 0);
+    }
+    return;
+  }
+
+  const fitDist = getFlatFitDistance();
+  const d = Math.min(fitDist, Math.max(controls.minDistance, camera.position.z));
+  const halfH = d * Math.tan(camera.fov * Math.PI / 360);
+  const halfW = halfH * camera.aspect;
+
+  // Allowed pan range: 0 when the map fills the view, wider when zoomed in
+  const limX = Math.max(0, FLAT_WIDTH / 2 - halfW);
+  const limY = Math.max(0, FLAT_HEIGHT / 2 - halfH);
+  const cx = Math.min(limX, Math.max(-limX, controls.target.x));
+  const cy = Math.min(limY, Math.max(-limY, controls.target.y));
+
+  // Camera directly above the target, looking straight down -z, no roll
+  controls.target.set(cx, cy, 0);
+  camera.position.set(cx, cy, d);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(controls.target);
+}
+
+function clampMapPan() {
+  // isGlobe !== false (not just "falsy") - if it's ever undefined
+  // during early frames, before whatever sets it is defined, we do
+  // not want to fall through to FLAT_WIDTH, which throws if it isn't
+  // defined yet, when that happens, since throwing here happens
+  // before renderer.render() in animate() and would blank the canvas
+  // permanently.
+  if (isGlobe !== false || !controls) return;
+  const maxX = FLAT_WIDTH / 2;
+  const maxY = FLAT_HEIGHT / 2;
+  const tx = Math.min(maxX, Math.max(-maxX, controls.target.x));
+  const ty = Math.min(maxY, Math.max(-maxY, controls.target.y));
+  const dx = tx - controls.target.x;
+  const dy = ty - controls.target.y;
+  if (dx === 0 && dy === 0) return;
+  controls.target.x = tx;
+  controls.target.y = ty;
+  camera.position.x += dx;
+  camera.position.y += dy;
 }
 
 function onViewMouseDown(e) {

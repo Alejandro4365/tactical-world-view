@@ -63,6 +63,7 @@ function onResize() {
   controls.handleResize();
 
   if (!isGlobe && !isAnimating) {
+    controls.maxDistance = getFlatFitDistance();
     camera.position.z = getFlatFitDistance();
     camera.lookAt(0, 0, 0);
   }
@@ -74,6 +75,8 @@ function animate() {
     mesh.rotation.y += AUTO_ROTATE_SPEED;
   }
   controls.update();
+  // Pin globe center / constrain map view after controls moved the camera
+  enforceViewConstraints();
   renderer.render(scene, camera);
 }
 
