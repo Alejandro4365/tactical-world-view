@@ -1,19 +1,20 @@
 // =================================================================
 // Country borders / names layer
-// (Border lines and name labels only, no fill.)
+// (Border lines and name labels only, no fill. Label size and
+// collisions are handled per frame in labels.js.)
 // =================================================================
 
-function makeLabelSprite(text) {
+function makeLabelSprite(text, { fontSize = 32, fill = '#eaf6ff', bold = false } = {}) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  const fontSize = 32;
-  ctx.font = fontSize + 'px Segoe UI, sans-serif';
+  const font = (bold ? 'bold ' : '') + fontSize + 'px Segoe UI, sans-serif';
+  ctx.font = font;
   const textWidth = Math.ceil(ctx.measureText(text).width);
   // Just enough padding for the stroke outline below
   const padding = 6;
   canvas.width = textWidth + padding * 2;
   canvas.height = fontSize + padding * 2;
-  ctx.font = fontSize + 'px Segoe UI, sans-serif';
+  ctx.font = font;
   ctx.textBaseline = 'middle';
 
   // Dark outline keeps text legible over light and dark areas
@@ -22,15 +23,16 @@ function makeLabelSprite(text) {
   ctx.strokeStyle = 'rgba(2, 6, 17, 0.85)';
   ctx.strokeText(text, padding, canvas.height / 2);
 
-  ctx.fillStyle = '#eaf6ff';
+  ctx.fillStyle = fill;
   ctx.fillText(text, padding, canvas.height / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
   const sprite = new THREE.Sprite(material);
-  const scale = 0.085;
-  sprite.scale.set(canvas.width * scale, canvas.height * scale, 1);
+  // Real scale is set every frame by updateLabels(); the canvas size is what it reads
+  sprite.userData.pxW = canvas.width;
+  sprite.userData.pxH = canvas.height;
   return sprite;
 }
 
@@ -49,11 +51,8 @@ function buildCountryLayer(geojson) {
                     : null;
     if (!polygons) return;
 
-    let largestRingLen = -1;
-    let largestRingCentroid = null;
-
+    // Border: every ring as a closed line loop
     polygons.forEach((rings) => {
-      // Border: every ring as a closed line loop
       rings.forEach((ring) => {
         for (let i = 0; i < ring.length; i++) {
           const p1src = ring[i];
@@ -64,22 +63,13 @@ function buildCountryLayer(geojson) {
           borderSpherePositions.push(p1.sphere.x, p1.sphere.y, p1.sphere.z, p2.sphere.x, p2.sphere.y, p2.sphere.z);
         }
       });
-
-      // Planar-average centroid of the largest outer ring for label placement
-      const outer = rings[0];
-      if (outer && outer.length > largestRingLen) {
-        largestRingLen = outer.length;
-        let sLon = 0, sLat = 0;
-        outer.forEach((pt) => { sLon += pt[0]; sLat += pt[1]; });
-        largestRingCentroid = [sLon / outer.length, sLat / outer.length];
-      }
     });
 
-    if (largestRingCentroid) {
-      const cProj = projectLonLat(largestRingCentroid[0], largestRingCentroid[1], SPHERE_LABEL_RADIUS);
-      cProj.flat.z = FLAT_LABEL_Z;
-      labelData.push({ name, flat: cProj.flat, sphere: cProj.sphere });
-    }
+    const stats = polygonsStats(polygons);
+    if (!stats) return;
+    const cProj = projectLonLat(stats.centroid[0], stats.centroid[1], SPHERE_LABEL_RADIUS);
+    cProj.flat.z = FLAT_LABEL_Z;
+    labelData.push({ name, flat: cProj.flat, sphere: cProj.sphere, area: stats.area });
   });
 
   const borderGeometry = new THREE.BufferGeometry();
@@ -90,7 +80,7 @@ function buildCountryLayer(geojson) {
   borderLines.userData.spherePositions = new Float32Array(borderSpherePositions);
 
   const labelGroup = new THREE.Group();
-  labelData.forEach(({ name, flat, sphere }) => {
+  labelData.forEach(({ name, flat, sphere, area }) => {
     const sprite = makeLabelSprite(name);
     sprite.position.set(sphere.x, sphere.y, sphere.z);
     sprite.userData.flatPos = flat;
@@ -103,6 +93,9 @@ function buildCountryLayer(geojson) {
   countryLayer.userData.labelGroup = labelGroup;
   countryLayer.add(borderLines, labelGroup);
   countryLayer.visible = document.getElementById('borders-toggle').checked;
+
+  // Larger countries win label collisions
+  labelGroup.children.forEach((sprite, i) => registerLabel(sprite, countryLayer, labelData[i].area));
 
   mesh.add(countryLayer); // inherits the mesh's rotation (auto-spin)
   applyCountryMorph(morphState.t);
@@ -119,58 +112,40 @@ function lerpBufferPositions(attr, flatArr, sphereArr, t) {
 function applyCountryMorph(t) {
   if (!countryLayer) return;
   const borderLines = countryLayer.userData.borderLines;
-  const labelGroup = countryLayer.userData.labelGroup;
-
   lerpBufferPositions(borderLines.geometry.attributes.position, borderLines.userData.flatPositions, borderLines.userData.spherePositions, t);
-
-  labelGroup.children.forEach((sprite) => {
-    const f = sprite.userData.flatPos, s = sprite.userData.spherePos;
-    sprite.position.set(
-      f.x + (s.x - f.x) * t,
-      f.y + (s.y - f.y) * t,
-      f.z + (s.z - f.z) * t
-    );
-  });
+  applyLabelMorph(countryLayer.userData.labelGroup, t);
 }
 
 function toggleBordersLayer(checked) {
   if (countryLayer) countryLayer.visible = checked;
 }
 
-const _labelWorld = new THREE.Vector3();
-const _toCamera = new THREE.Vector3();
-
-// Hides labels on the far side of the globe. A label faces the camera
-// when its outward normal (its world position, since the sphere is
-// centered at the origin) points toward the camera.
-// Skipped while the map is flat or mid-morph so labels stay visible there.
-function updateLabelVisibility() {
-  if (!countryLayer) return;
-  const labels = countryLayer.userData.labelGroup.children;
-
-  if (morphState.t < 0.9) {
-    labels.forEach((s) => { s.visible = true; });
-    return;
-  }
-
-  labels.forEach((s) => {
-    s.getWorldPosition(_labelWorld);
-    _toCamera.copy(camera.position).sub(_labelWorld);
-    s.visible = _labelWorld.dot(_toCamera) > 0;
-  });
-}
-
 async function loadCountries() {
   const statusEl = document.getElementById('borders-status');
+  const langStatusEl = document.getElementById('language-status');
+
+  let geojson;
   try {
     const res = await fetch(COUNTRIES_GEOJSON_URL);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const geojson = await res.json();
+    geojson = await res.json();
     buildCountryLayer(geojson);
     document.getElementById('borders-toggle').disabled = false;
     if (statusEl) statusEl.textContent = geojson.features.length + ' countries loaded';
   } catch (err) {
     console.error('Failed to load country border data:', err);
     if (statusEl) statusEl.textContent = 'Border data unavailable';
+    if (langStatusEl) langStatusEl.textContent = 'Needs country data';
+    return;
+  }
+
+  // Separate try: a language-layer bug must not report the borders as broken
+  try {
+    buildLanguageLayer(geojson);
+    document.getElementById('language-toggle').disabled = false;
+    if (langStatusEl) langStatusEl.textContent = 'Country-level approximation';
+  } catch (err) {
+    console.error('Failed to build language families layer:', err);
+    if (langStatusEl) langStatusEl.textContent = 'Language layer unavailable';
   }
 }

@@ -128,6 +128,36 @@
       color: #5c7086;
       margin-top: 5px;
     }
+
+        #language-status {
+      font-size: 10px;
+      color: #5c7086;
+      margin-top: 5px;
+    }
+
+    #language-legend {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #dce6f5;
+    }
+
+    #language-legend[hidden] {
+      display: none;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 1px 0;
+    }
+
+    .legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex: none;
+    }
   </style>
 </head>
 <body>
@@ -156,6 +186,15 @@
     </div>
   </div>
 
+    <div class="panel-section">
+    <label class="checkbox-row">
+      <input type="checkbox" id="language-toggle" disabled onchange="toggleLanguageLayer(this.checked)">
+      Language Families
+    </label>
+    <p id="language-status">Waiting for country data&hellip;</p>
+    <div id="language-legend" hidden></div>
+  </div>
+
   <div id="view-container"></div>
 
   <!-- App modules, split by function. Order matters: each file uses
@@ -166,7 +205,9 @@
   <script src="js/state.js"></script>
   <script src="js/grid.js"></script>
   <script src="js/skins.js"></script>
+  <script src="js/labels.js"></script>
   <script src="js/countryLayer.js"></script>
+  <script src="js/languageLayer.js"></script>
   <script src="js/scene.js"></script>
   <script src="js/interactions.js"></script>
   <script src="js/main.js"></script>

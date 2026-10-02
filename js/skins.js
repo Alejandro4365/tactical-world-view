@@ -2,17 +2,45 @@
 // Skins
 // =================================================================
 
-function applySkin(key) {
+// Incremented per request so a slow download of an earlier choice
+// can't overwrite a skin picked after it.
+let skinRequestId = 0;
+
+function loadTexture(url) {
+  return new Promise((resolve, reject) => {
+    new THREE.TextureLoader().load(url, resolve, undefined,
+      () => reject(new Error('Failed to load skin texture: ' + url)));
+  });
+}
+
+function setSkinMap(texture, color) {
+  // Free the GPU memory of the texture being replaced
+  if (mesh.material.map) mesh.material.map.dispose();
+  mesh.material.map = texture;
+  mesh.material.color.set(color);
+  mesh.material.needsUpdate = true;
+}
+
+async function applySkin(key) {
   const skin = SKINS[key];
   if (!skin || !mesh) return;
-  if (skin.url) {
-    const tex = new THREE.TextureLoader().load(skin.url);
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    mesh.material.map = tex;
-    mesh.material.color.set(0xffffff);
-  } else {
-    mesh.material.map = null;
-    mesh.material.color.set(skin.color);
+  const requestId = ++skinRequestId;
+
+  if (!skin.urls) {
+    setSkinMap(null, skin.color);
+    return;
   }
-  mesh.material.needsUpdate = true;
+
+  for (const url of skin.urls) {
+    try {
+      const tex = await loadTexture(url);
+      if (requestId !== skinRequestId) { tex.dispose(); return; }
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      setSkinMap(tex, 0xffffff);
+      return;
+    } catch (err) {
+      console.warn(err.message);
+    }
+  }
+  console.error('All sources failed for skin "' + key + '"; keeping the current skin.');
 }

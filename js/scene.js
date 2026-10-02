@@ -24,12 +24,12 @@ function init() {
   scene.add(sun);
 
   const geometry = buildGrid();
-  const texture = new THREE.TextureLoader().load(EARTH_TEXTURE_URL);
-  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const material = new THREE.MeshPhongMaterial({ map: texture, shininess: 5 });
+  // Dark placeholder color until the first skin texture arrives
+  const material = new THREE.MeshPhongMaterial({ color: 0x081226, shininess: 5 });
 
   mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
+  applySkin('blueMarble');
 
   // TrackballControls rotates about any axis, so the globe has no pole lock
   controls = new THREE.TrackballControls(camera, renderer.domElement);
@@ -73,13 +73,14 @@ function animate() {
   controls.update();
   // Pin globe center / constrain map view after controls moved the camera
   enforceViewConstraints();
-  // Hide country names on the far side of the sphere
-  updateLabelVisibility();
+  // Size, cull and de-collide all labels for this frame's camera
+  updateLabels();
   renderer.render(scene, camera);
 }
 
 // Rewrites the mesh's position buffer as a per-vertex lerp between
 // the flat-map positions and the sphere positions, driven by t (0..1).
+// The language fill shares this geometry, so it morphs with it.
 function applyMorph(t) {
   const posAttr = mesh.geometry.attributes.position;
   const arr = posAttr.array;
@@ -89,4 +90,5 @@ function applyMorph(t) {
   posAttr.needsUpdate = true;
   mesh.geometry.computeVertexNormals();
   applyCountryMorph(t);
+  applyLanguageMorph(t);
 }
