@@ -56,7 +56,7 @@
       letter-spacing: 1px;
       text-transform: uppercase;
       color: #00e1ff;
-      margin-bottom: 6px;
+      margin-bottom: 12px; /* was 6px, compensates for the removed Mode line */
       text-shadow: 0 0 8px rgba(0, 225, 255, 0.5);
     }
 
@@ -134,7 +134,6 @@
 
   <div id="ui-container">
     <h2>Tactical Command</h2>
-    <p style="font-size: 12px; margin-bottom: 10px; color: #8a9bb8;">Mode: <span id="mode-text" style="color: #fff;">Planet (3D)</span></p>
     <button class="btn-toggle" id="toggle-btn" onclick="toggleView()">Switch to Mapamundi</button>
 
     <div class="panel-section">

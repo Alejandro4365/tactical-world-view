@@ -31,11 +31,7 @@ function init() {
   mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
 
-  // TrackballControls instead of OrbitControls: OrbitControls always
-  // orbits around a fixed world "up" axis, which is what made the
-  // globe feel locked/gimbal-jammed near the poles. TrackballControls
-  // rotates the camera about whatever arbitrary axis the drag implies,
-  // so the globe can be spun freely in any direction, poles included.
+  // TrackballControls rotates about any axis, so the globe has no pole lock
   controls = new THREE.TrackballControls(camera, renderer.domElement);
   controls.noZoom = false;
   controls.noPan = false;
@@ -44,11 +40,10 @@ function init() {
   controls.zoomSpeed = 3.4;
   controls.panSpeed = 1.2;
   controls.dynamicDampingFactor = 0.12;
-  controls.minDistance = 105;
-  controls.maxDistance = 900;
-  // Left button rotates by default (globe mode). interactions.js flips
-  // this to PAN in map mode (and to inert while fullscreen) - see
-  // updateLeftMouseMapping().
+  // Globe mode has no zoom limits; map mode sets its own in toggleView()
+  controls.minDistance = 0;
+  controls.maxDistance = Infinity;
+  // Left rotates by default (globe mode); see updateLeftMouseMapping()
   controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 
   window.addEventListener('resize', onResize);
@@ -63,6 +58,7 @@ function onResize() {
   controls.handleResize();
 
   if (!isGlobe && !isAnimating) {
+    // Keep the zoom-out limit in sync with the new viewport
     controls.maxDistance = getFlatFitDistance();
     camera.position.z = getFlatFitDistance();
     camera.lookAt(0, 0, 0);
@@ -77,6 +73,8 @@ function animate() {
   controls.update();
   // Pin globe center / constrain map view after controls moved the camera
   enforceViewConstraints();
+  // Hide country names on the far side of the sphere
+  updateLabelVisibility();
   renderer.render(scene, camera);
 }
 

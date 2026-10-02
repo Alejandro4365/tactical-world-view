@@ -1,9 +1,6 @@
 // =================================================================
 // Country borders / names layer
-// (No fill: a semi-transparent per-country fill used to blend with
-// the terrain texture underneath, producing a blotchy look instead
-// of a clean overlay - so this layer only draws border lines and
-// name labels, matching the "Country Borders" checkbox label.)
+// (Border lines and name labels only, no fill.)
 // =================================================================
 
 function makeLabelSprite(text) {
@@ -12,21 +9,20 @@ function makeLabelSprite(text) {
   const fontSize = 32;
   ctx.font = fontSize + 'px Segoe UI, sans-serif';
   const textWidth = Math.ceil(ctx.measureText(text).width);
-  // Just enough padding for the stroke outline below - no background box.
+  // Just enough padding for the stroke outline below
   const padding = 6;
   canvas.width = textWidth + padding * 2;
   canvas.height = fontSize + padding * 2;
   ctx.font = fontSize + 'px Segoe UI, sans-serif';
   ctx.textBaseline = 'middle';
 
-  // Dark outline behind the text keeps it legible over both light and
-  // dark map areas without needing a solid background rectangle.
+  // Dark outline keeps text legible over light and dark areas
   ctx.lineJoin = 'round';
   ctx.lineWidth = 5;
   ctx.strokeStyle = 'rgba(2, 6, 17, 0.85)';
   ctx.strokeText(text, padding, canvas.height / 2);
 
-  ctx.fillStyle = '#eaf6ff'; // same grey/light label color as before
+  ctx.fillStyle = '#eaf6ff';
   ctx.fillText(text, padding, canvas.height / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -57,7 +53,7 @@ function buildCountryLayer(geojson) {
     let largestRingCentroid = null;
 
     polygons.forEach((rings) => {
-      // --- Border: every ring as a closed line loop ---
+      // Border: every ring as a closed line loop
       rings.forEach((ring) => {
         for (let i = 0; i < ring.length; i++) {
           const p1src = ring[i];
@@ -69,8 +65,7 @@ function buildCountryLayer(geojson) {
         }
       });
 
-      // Track a simple planar-average centroid of the largest ring
-      // (outer boundary) for label placement.
+      // Planar-average centroid of the largest outer ring for label placement
       const outer = rings[0];
       if (outer && outer.length > largestRingLen) {
         largestRingLen = outer.length;
@@ -109,7 +104,7 @@ function buildCountryLayer(geojson) {
   countryLayer.add(borderLines, labelGroup);
   countryLayer.visible = document.getElementById('borders-toggle').checked;
 
-  mesh.add(countryLayer); // inherits mesh's own rotation (auto-spin) automatically
+  mesh.add(countryLayer); // inherits the mesh's rotation (auto-spin)
   applyCountryMorph(morphState.t);
 }
 
@@ -140,6 +135,29 @@ function applyCountryMorph(t) {
 
 function toggleBordersLayer(checked) {
   if (countryLayer) countryLayer.visible = checked;
+}
+
+const _labelWorld = new THREE.Vector3();
+const _toCamera = new THREE.Vector3();
+
+// Hides labels on the far side of the globe. A label faces the camera
+// when its outward normal (its world position, since the sphere is
+// centered at the origin) points toward the camera.
+// Skipped while the map is flat or mid-morph so labels stay visible there.
+function updateLabelVisibility() {
+  if (!countryLayer) return;
+  const labels = countryLayer.userData.labelGroup.children;
+
+  if (morphState.t < 0.9) {
+    labels.forEach((s) => { s.visible = true; });
+    return;
+  }
+
+  labels.forEach((s) => {
+    s.getWorldPosition(_labelWorld);
+    _toCamera.copy(camera.position).sub(_labelWorld);
+    s.visible = _labelWorld.dot(_toCamera) > 0;
+  });
 }
 
 async function loadCountries() {
