@@ -1,15 +1,30 @@
 // =================================================================
 // Labels
 // Shared label placement for every layer (country names, language
-// family names). Each frame: labels keep a constant on-screen size,
-// far-side labels are dropped, and overlapping labels are resolved
-// in favor of the higher-priority one. Zooming in frees up screen
-// space, so lower-priority labels appear.
+// family names). Every label on the visible side is always shown;
+// each frame the layout shrinks and shifts labels so they don't
+// collide. Labels are placed in priority order (family names first,
+// then larger countries). Each label takes the first free option:
+//   full size in place -> smaller in place -> smaller and nudged away
+// If nothing is free, it takes the spot with the least overlap.
+// Size and offset are smoothed over frames so labels glide.
 // =================================================================
 
-const labelRegistry = []; // { sprite, layer, priority }
-const LABEL_PX_SCALE = 0.5;  // canvas px -> screen px (32px font = 16px on screen)
-const LABEL_PADDING_PX = 4;  // minimum gap between two labels
+const labelRegistry = []; // { sprite, layer, priority, active, scale, ox, oy }
+
+const LABEL_PX_SCALE = 0.5;   // canvas px -> screen px (32px font = 16px on screen)
+const LABEL_PADDING_PX = 3;   // minimum gap between two labels
+const LABEL_MIN_SCALE = 0.45; // smallest a label may shrink to (fraction of full size)
+const LABEL_SMOOTHING = 0.3;  // 0..1, how fast size/offset follow their target per frame
+
+// [scale, nudge radius]. Nudge radius 0 = stay on the anchor; otherwise
+// try 8 directions at that multiple of the label size. Order = preference.
+const LABEL_TIERS = [
+  [1, 0], [0.8, 0], [0.65, 0], [0.65, 1],
+  [0.5, 0], [0.5, 1], [0.5, 1.8],
+  [LABEL_MIN_SCALE, 0], [LABEL_MIN_SCALE, 1], [LABEL_MIN_SCALE, 1.8], [LABEL_MIN_SCALE, 2.8]
+];
+const LABEL_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 1], [-0.7, 1], [0.7, -1], [-0.7, -1]];
 
 const _lblWorld = new THREE.Vector3();
 const _lblView = new THREE.Vector3();
@@ -17,7 +32,7 @@ const _lblNdc = new THREE.Vector3();
 const _lblToCam = new THREE.Vector3();
 
 function registerLabel(sprite, layer, priority) {
-  labelRegistry.push({ sprite, layer, priority });
+  labelRegistry.push({ sprite, layer, priority, active: false, scale: 1, ox: 0, oy: 0 });
 }
 
 // Absolute polygon area in lon/lat degrees (shoelace). Only used to rank labels.
@@ -57,8 +72,44 @@ function applyLabelMorph(labelGroup, t) {
   });
 }
 
-function boxesOverlap(a, b) {
-  return a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
+function labelBox(cx, cy, w, h) {
+  const hw = w / 2 + LABEL_PADDING_PX, hh = h / 2 + LABEL_PADDING_PX;
+  return { l: cx - hw, r: cx + hw, t: cy - hh, b: cy + hh };
+}
+
+// Total overlap area between a box and everything already placed (0 = free)
+function overlapAmount(box, placed) {
+  let total = 0;
+  for (let i = 0; i < placed.length; i++) {
+    const p = placed[i];
+    const w = Math.min(box.r, p.r) - Math.max(box.l, p.l);
+    if (w <= 0) continue;
+    const h = Math.min(box.b, p.b) - Math.max(box.t, p.t);
+    if (h > 0) total += w * h;
+  }
+  return total;
+}
+
+// Best (scale, offset) for one label given the boxes already placed.
+function chooseLabelPlacement(c, placed) {
+  let best = null, bestOverlap = Infinity;
+
+  for (const [scale, radius] of LABEL_TIERS) {
+    const w = c.baseW * scale, h = c.baseH * scale;
+    const tries = radius === 0 ? 1 : LABEL_DIRS.length;
+
+    for (let k = 0; k < tries; k++) {
+      const dx = radius === 0 ? 0 : LABEL_DIRS[k][0] * radius * w * 0.55;
+      const dy = radius === 0 ? 0 : LABEL_DIRS[k][1] * radius * h * 1.1;
+      const box = labelBox(c.x + dx, c.y + dy, w, h);
+      const overlap = overlapAmount(box, placed);
+
+      if (overlap === 0) return { scale, dx, dy, box };
+      // Nothing free yet: remember the least-bad spot (earlier = larger wins ties)
+      if (overlap < bestOverlap) { bestOverlap = overlap; best = { scale, dx, dy, box }; }
+    }
+  }
+  return best;
 }
 
 function updateLabels() {
@@ -66,54 +117,67 @@ function updateLabels() {
   const el = renderer.domElement;
   const W = el.clientWidth, H = el.clientHeight;
   const tanHalfFov = Math.tan(camera.fov * Math.PI / 360);
-  // Back-side culling only applies once the mesh is (almost) a sphere
+  // Far-side culling only applies once the mesh is (almost) a sphere
   const onSphere = morphState.t >= 0.9;
   camera.updateMatrixWorld();
 
   const candidates = [];
   labelRegistry.forEach((entry) => {
     const s = entry.sprite;
-    if (!entry.layer.visible) return;
+    if (!entry.layer.visible) { entry.active = false; return; }
     s.getWorldPosition(_lblWorld);
 
     // A label faces the camera when its outward normal (its position,
-    // the sphere being centered at the origin) points toward the camera
+    // the sphere being centered at the origin) points toward the camera.
+    // Labels on the far side are behind the planet, so they can't be shown.
     if (onSphere) {
       _lblToCam.copy(camera.position).sub(_lblWorld);
-      if (_lblWorld.dot(_lblToCam) <= 0) { s.visible = false; return; }
+      if (_lblWorld.dot(_lblToCam) <= 0) { s.visible = false; entry.active = false; return; }
     }
 
     _lblView.copy(_lblWorld).applyMatrix4(camera.matrixWorldInverse);
     const depth = -_lblView.z;
-    if (depth <= camera.near) { s.visible = false; return; }
+    if (depth <= camera.near) { s.visible = false; entry.active = false; return; }
 
     _lblNdc.copy(_lblWorld).project(camera);
-    if (Math.abs(_lblNdc.x) > 1.1 || Math.abs(_lblNdc.y) > 1.1) { s.visible = false; return; }
+    if (Math.abs(_lblNdc.x) > 1.1 || Math.abs(_lblNdc.y) > 1.1) { s.visible = false; entry.active = false; return; }
 
     candidates.push({
-      sprite: s,
-      priority: entry.priority,
+      entry,
       x: (_lblNdc.x * 0.5 + 0.5) * W,
       y: (0.5 - _lblNdc.y * 0.5) * H,
-      w: s.userData.pxW * LABEL_PX_SCALE,
-      h: s.userData.pxH * LABEL_PX_SCALE,
+      baseW: s.userData.pxW * LABEL_PX_SCALE,
+      baseH: s.userData.pxH * LABEL_PX_SCALE,
       // world units covered by one screen pixel at this label's depth
       worldPerPx: (2 * depth * tanHalfFov) / H
     });
   });
 
-  // Greedy placement: highest priority first, skip anything that collides
-  candidates.sort((a, b) => b.priority - a.priority);
+  // Highest priority first: it gets the best spot, the rest flow around it
+  candidates.sort((a, b) => b.entry.priority - a.entry.priority);
+
   const placed = [];
   candidates.forEach((c) => {
-    const box = {
-      l: c.x - c.w / 2 - LABEL_PADDING_PX, r: c.x + c.w / 2 + LABEL_PADDING_PX,
-      t: c.y - c.h / 2 - LABEL_PADDING_PX, b: c.y + c.h / 2 + LABEL_PADDING_PX
-    };
-    if (placed.some((p) => boxesOverlap(box, p))) { c.sprite.visible = false; return; }
-    placed.push(box);
-    c.sprite.visible = true;
-    // Constant on-screen size regardless of zoom
-    c.sprite.scale.set(c.w * c.worldPerPx, c.h * c.worldPerPx, 1);
+    const target = chooseLabelPlacement(c, placed);
+    placed.push(target.box);
+
+    const e = c.entry;
+    if (!e.active) {
+      // Just became visible: snap, don't glide in from stale values
+      e.active = true;
+      e.scale = target.scale; e.ox = target.dx; e.oy = target.dy;
+    } else {
+      e.scale += (target.scale - e.scale) * LABEL_SMOOTHING;
+      e.ox += (target.dx - e.ox) * LABEL_SMOOTHING;
+      e.oy += (target.dy - e.oy) * LABEL_SMOOTHING;
+    }
+
+    const w = c.baseW * e.scale, h = c.baseH * e.scale;
+    const s = e.sprite;
+    s.visible = true;
+    // Constant on-screen size regardless of zoom (times the shrink factor)
+    s.scale.set(w * c.worldPerPx, h * c.worldPerPx, 1);
+    // Sprite pivot shifts the quad on screen: right by ox, down by oy (px)
+    s.center.set(0.5 - e.ox / w, 0.5 + e.oy / h);
   });
 }

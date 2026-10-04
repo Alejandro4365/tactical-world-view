@@ -8,8 +8,8 @@
 // High-resolution lat/lon grid shared by BOTH the flat map and the
 // globe. Every vertex is computed twice (Equal Earth for the map,
 // spherical->cartesian for the globe); toggling interpolates between them.
-const LON_SEGMENTS = 256;
-const LAT_SEGMENTS = 128;
+const LON_SEGMENTS = 1024; // columns (was 256)
+const LAT_SEGMENTS = 512;  // rows (was 128)
 const SPHERE_RADIUS = 100;
 const FLAT_WIDTH = 340;
 const FLAT_HEIGHT = 170;
@@ -39,3 +39,7 @@ const FLAT_LABEL_Z = 1.4;
 // --- Click-to-toggle tuning (see interactions.js) ---
 const CLICK_MAX_DRAG_PX = 5;
 const CLICK_MAX_TIME_MS = 500;
+
+// Closest the camera may get to the planet's center in globe mode
+// (a little above the labels/borders that float at up to 1.01 * radius)
+const GLOBE_MIN_DISTANCE = SPHERE_RADIUS * 1.03;

@@ -54,8 +54,8 @@ function toggleView() {
   } else {
     // Flat map -> sphere
     controls.noRotate = false;
-    // Planet mode: unlimited zoom
-    controls.minDistance = 0;
+    // Planet mode: unlimited zoom out, but never into the surface
+    controls.minDistance = GLOBE_MIN_DISTANCE;
     controls.maxDistance = Infinity;
     const upTarget = { x: camera.up.x, y: camera.up.y, z: camera.up.z };
 

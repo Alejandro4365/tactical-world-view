@@ -13,6 +13,7 @@ function buildGrid() {
 
   flatPositions = new Float32Array(vertexCount * 3);
   spherePositions = new Float32Array(vertexCount * 3);
+  sphereNormals = new Float32Array(vertexCount * 3);
   const uvs = new Float32Array(vertexCount * 2);
 
   let vi = 0;
@@ -34,6 +35,11 @@ function buildGrid() {
       spherePositions[vi * 3 + 1] = p.sphere.y;
       spherePositions[vi * 3 + 2] = p.sphere.z;
 
+      // The outward normal of a sphere centered at the origin is the unit position
+      sphereNormals[vi * 3 + 0] = p.sphere.x / SPHERE_RADIUS;
+      sphereNormals[vi * 3 + 1] = p.sphere.y / SPHERE_RADIUS;
+      sphereNormals[vi * 3 + 2] = p.sphere.z / SPHERE_RADIUS;
+
       // Texture v is flipped here: three.js uploads images with
       // flipY=true by default, so v=1 (not v=0) corresponds to the
       // top/north row of a normally-loaded image.
@@ -44,24 +50,34 @@ function buildGrid() {
     }
   }
 
+  // Start as a sphere (morphState.t = 1)
   const startPositions = new Float32Array(spherePositions);
+  const startNormals = new Float32Array(sphereNormals);
 
-  const indices = [];
+  // More than 65535 vertices, so the index buffer must be 32-bit
+  const indices = new Uint32Array(LAT_SEGMENTS * LON_SEGMENTS * 6);
+  let ii = 0;
   for (let row = 0; row < LAT_SEGMENTS; row++) {
     for (let col = 0; col < LON_SEGMENTS; col++) {
       const a = row * vertsPerRow + col;
       const b = a + 1;
       const c = a + vertsPerRow;
       const d = c + 1;
-      indices.push(a, c, b);
-      indices.push(b, c, d);
+      indices[ii++] = a; indices[ii++] = c; indices[ii++] = b;
+      indices[ii++] = b; indices[ii++] = c; indices[ii++] = d;
     }
   }
 
-  geometry.setIndex(indices);
-  geometry.setAttribute('position', new THREE.BufferAttribute(startPositions, 3));
+  const positionAttr = new THREE.BufferAttribute(startPositions, 3);
+  const normalAttr = new THREE.BufferAttribute(startNormals, 3);
+  // Both buffers are rewritten on every morph frame
+  positionAttr.setUsage(THREE.DynamicDrawUsage);
+  normalAttr.setUsage(THREE.DynamicDrawUsage);
+
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  geometry.setAttribute('position', positionAttr);
+  geometry.setAttribute('normal', normalAttr);
   geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  geometry.computeVertexNormals();
 
   return geometry;
 }

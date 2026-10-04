@@ -7,7 +7,7 @@
 // =================================================================
 
 let scene, camera, renderer, controls, mesh;
-let flatPositions, spherePositions; // Float32Array position buffers (base terrain)
+let flatPositions, spherePositions, sphereNormals; // Float32Array buffers (base terrain)
 let countryLayer = null; // THREE.Group holding fills/borders/labels, child of mesh
 let isGlobe = true;
 let isAnimating = false;

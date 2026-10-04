@@ -40,8 +40,9 @@ function init() {
   controls.zoomSpeed = 3.4;
   controls.panSpeed = 1.2;
   controls.dynamicDampingFactor = 0.12;
-  // Globe mode has no zoom limits; map mode sets its own in toggleView()
-  controls.minDistance = 0;
+  // Globe mode: unlimited zoom out, but never into the surface.
+  // Map mode sets its own limits in toggleView().
+  controls.minDistance = GLOBE_MIN_DISTANCE;
   controls.maxDistance = Infinity;
   // Left rotates by default (globe mode); see updateLeftMouseMapping()
   controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
@@ -73,22 +74,37 @@ function animate() {
   controls.update();
   // Pin globe center / constrain map view after controls moved the camera
   enforceViewConstraints();
-  // Size, cull and de-collide all labels for this frame's camera
+  // Size, place and cull all labels for this frame's camera
   updateLabels();
   renderer.render(scene, camera);
 }
 
-// Rewrites the mesh's position buffer as a per-vertex lerp between
-// the flat-map positions and the sphere positions, driven by t (0..1).
-// The language fill shares this geometry, so it morphs with it.
+// Rewrites the position and normal buffers as a per-vertex blend between
+// the flat map and the sphere, driven by t (0..1). The language fill
+// shares this geometry, so it morphs with it.
 function applyMorph(t) {
   const posAttr = mesh.geometry.attributes.position;
-  const arr = posAttr.array;
-  for (let i = 0; i < arr.length; i++) {
-    arr[i] = flatPositions[i] + (spherePositions[i] - flatPositions[i]) * t;
+  const norAttr = mesh.geometry.attributes.normal;
+  const pos = posAttr.array;
+  const nor = norAttr.array;
+
+  for (let i = 0; i < pos.length; i += 3) {
+    pos[i]     = flatPositions[i]     + (spherePositions[i]     - flatPositions[i])     * t;
+    pos[i + 1] = flatPositions[i + 1] + (spherePositions[i + 1] - flatPositions[i + 1]) * t;
+    pos[i + 2] = flatPositions[i + 2] + (spherePositions[i + 2] - flatPositions[i + 2]) * t;
+
+    // Flat normal is +z, sphere normal is outward: blend, then renormalize
+    const nx = sphereNormals[i] * t;
+    const ny = sphereNormals[i + 1] * t;
+    const nz = (1 - t) + sphereNormals[i + 2] * t;
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    nor[i]     = nx / len;
+    nor[i + 1] = ny / len;
+    nor[i + 2] = nz / len;
   }
+
   posAttr.needsUpdate = true;
-  mesh.geometry.computeVertexNormals();
+  norAttr.needsUpdate = true;
   applyCountryMorph(t);
   applyLanguageMorph(t);
 }
