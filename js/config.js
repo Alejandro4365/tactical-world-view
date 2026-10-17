@@ -14,9 +14,6 @@ const SPHERE_RADIUS = 100;
 const FLAT_WIDTH = 340;
 const FLAT_HEIGHT = 170;
 
-const AMBIENT_INTENSITY = 0.55;
-const HEADLIGHT_INTENSITY = 0.7;
-
 const COUNTRIES_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson';
 
 const AUTO_ROTATE_SPEED = 0.0012; // radians per frame, idle globe spin
@@ -24,7 +21,10 @@ const AUTO_ROTATE_SPEED = 0.0012; // radians per frame, idle globe spin
 // Globe/map skins. `urls` are tried in order: put a higher-resolution
 // source first and keep the older one after it as a fallback.
 const SKINS = {
-  blueMarble: { label: 'Blue Marble',   urls: ['https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'] },
+  blueMarble: { label: 'Blue Marble',   urls: [
+                'https://raw.githubusercontent.com/vvanhee/earth-wallpaper/main/world.topo.bathy.200401.3x5400x2700.png', // 5400x2700, tried first
+                'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg' // 4096x2048 fallback
+              ] },
   day:        { label: 'Day Map',       urls: ['https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_day_4096.jpg',
                                                'https://unpkg.com/three-globe/example/img/earth-day.jpg'] },
   night:      { label: 'Night Lights',  urls: ['https://unpkg.com/three-globe/example/img/earth-night.jpg'] },

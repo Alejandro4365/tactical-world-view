@@ -6,7 +6,7 @@
 // these bindings directly - no imports/exports needed.
 // =================================================================
 
-let scene, camera, renderer, controls, mesh, headlight;
+let scene, camera, renderer, controls, mesh;
 let flatPositions, spherePositions, sphereNormals; // Float32Array buffers (base terrain)
 let countryLayer = null; // THREE.Group holding fills/borders/labels, child of mesh
 let isGlobe = true;
