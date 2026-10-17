@@ -50,5 +50,4 @@ function setSkinMap(texture, color) {
   mesh.material.map = texture;
   mesh.material.color.set(color);
   mesh.material.needsUpdate = true;
-  setTileSkin(texture ? texture.image : null); // tiles paint over this skin
 }
