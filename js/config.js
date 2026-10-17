@@ -14,8 +14,8 @@ const SPHERE_RADIUS = 100;
 const FLAT_WIDTH = 340;
 const FLAT_HEIGHT = 170;
 
-const AMBIENT_INTENSITY = 0.55;
-const HEADLIGHT_INTENSITY = 0.7;
+const AMBIENT_INTENSITY = 0.45;
+const HEADLIGHT_INTENSITY = 0.4;
 
 const COUNTRIES_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson';
 
