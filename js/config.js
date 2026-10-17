@@ -21,7 +21,10 @@ const AUTO_ROTATE_SPEED = 0.0012; // radians per frame, idle globe spin
 // Globe/map skins. `urls` are tried in order: put a higher-resolution
 // source first and keep the older one after it as a fallback.
 const SKINS = {
-  blueMarble: { label: 'Blue Marble',   urls: ['https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'] },
+  blueMarble: { label: 'Blue Marble',   urls: [
+                'https://raw.githubusercontent.com/vvanhee/earth-wallpaper/main/world.topo.bathy.200401.3x5400x2700.png', // 5400x2700, tried first
+                'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg' // 4096x2048 fallback
+              ] },
   day:        { label: 'Day Map',       urls: ['https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_day_4096.jpg',
                                                'https://unpkg.com/three-globe/example/img/earth-day.jpg'] },
   night:      { label: 'Night Lights',  urls: ['https://unpkg.com/three-globe/example/img/earth-night.jpg'] },
@@ -40,6 +43,9 @@ const FLAT_LABEL_Z = 1.4;
 const CLICK_MAX_DRAG_PX = 5;
 const CLICK_MAX_TIME_MS = 500;
 
-// Closest the camera may get to the planet's center in globe mode
-// (a little above the labels/borders that float at up to 1.01 * radius)
+
+// Zooming
 const GLOBE_MIN_DISTANCE = SPHERE_RADIUS * 1.03;
+const GLOBE_MAX_DISTANCE = 900;
+const MAP_MIN_DISTANCE = 10;    // was 60. Lower = zoom in closer
+const MAP_MAX_DISTANCE = 1200;

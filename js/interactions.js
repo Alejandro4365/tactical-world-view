@@ -29,7 +29,8 @@ function toggleView() {
       onComplete: () => {
         controls.noRotate = true;
         controls.noPan = false;
-        controls.minDistance = 60;
+        controls.minDistance = MAP_MIN_DISTANCE;
+        // controls.maxDistance = MAP_MAX_DISTANCE;
         // Zooming out past "map fits the page" would shrink the map off the page edges
         controls.maxDistance = getFlatFitDistance();
         btn.innerText = 'Switch to Planet Mode';
