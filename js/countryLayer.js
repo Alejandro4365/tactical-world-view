@@ -51,12 +51,13 @@ function buildCountryLayer(geojson) {
                     : null;
     if (!polygons) return;
 
-    // Border: every ring as a closed line loop
+    // Border: every ring as a densified line loop
     polygons.forEach((rings) => {
       rings.forEach((ring) => {
-        for (let i = 0; i < ring.length; i++) {
-          const p1src = ring[i];
-          const p2src = ring[(i + 1) % ring.length];
+        const pts = densifyRing(ring);
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p1src = pts[i];
+          const p2src = pts[i + 1];
           const p1 = projectLonLat(p1src[0], p1src[1], SPHERE_BORDER_RADIUS);
           const p2 = projectLonLat(p2src[0], p2src[1], SPHERE_BORDER_RADIUS);
           borderFlatPositions.push(p1.flat.x, p1.flat.y, FLAT_BORDER_Z, p2.flat.x, p2.flat.y, FLAT_BORDER_Z);

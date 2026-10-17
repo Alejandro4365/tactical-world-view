@@ -49,3 +49,27 @@ function normalizeAngle(angle) {
   if (a < -Math.PI) a += twoPi;
   return a;
 }
+
+// Segments are subdivided in lon/lat before projection. The fill is painted
+// in lon/lat space, but the flat map is Equal Earth, so a long straight
+// lon/lat edge only matches a projected line if it is split into small pieces.
+const SEGMENT_MAX_STEP_DEG = 0.5;
+
+// Appends the points from a (inclusive) up to b (exclusive) to out.
+function densifySegment(a, b, out) {
+  const span = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+  const n = Math.max(1, Math.ceil(span / SEGMENT_MAX_STEP_DEG));
+  for (let k = 0; k < n; k++) {
+    const t = k / n;
+    out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+  }
+  return out;
+}
+
+// Densifies a closed or open ring; the last point is kept.
+function densifyRing(ring) {
+  const out = [];
+  for (let i = 0; i < ring.length - 1; i++) densifySegment(ring[i], ring[i + 1], out);
+  out.push(ring[ring.length - 1]);
+  return out;
+}

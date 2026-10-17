@@ -81,6 +81,7 @@ function animate() {
   enforceViewConstraints();
   // Size, place and cull all labels for this frame's camera
   updateLabels();
+  updateTiles();
   renderer.render(scene, camera);
 }
 

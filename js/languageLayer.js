@@ -124,7 +124,7 @@ function paintFamilyTexture(features, lookup) {
     polygonsOf(feature.geometry).forEach((rings) => {
       ctx.beginPath();
       rings.forEach((ring) => {
-        ring.forEach((p, i) => {
+        densifyRing(ring).forEach((p, i) => {
           const x = (p[0] + 180) / 360 * W;
           const y = (90 - p[1]) / 180 * H;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
@@ -167,10 +167,14 @@ function collectFamilyBorders(features, lookup) {
   const flat = [], sphere = [];
   edges.forEach((edge) => {
     if (!edge.border) return;
-    const p1 = projectLonLat(edge.a[0], edge.a[1], LANGUAGE_BORDER_RADIUS);
-    const p2 = projectLonLat(edge.b[0], edge.b[1], LANGUAGE_BORDER_RADIUS);
-    flat.push(p1.flat.x, p1.flat.y, LANGUAGE_BORDER_Z, p2.flat.x, p2.flat.y, LANGUAGE_BORDER_Z);
-    sphere.push(p1.sphere.x, p1.sphere.y, p1.sphere.z, p2.sphere.x, p2.sphere.y, p2.sphere.z);
+    const pts = densifySegment(edge.a, edge.b, []);
+    pts.push(edge.b);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = projectLonLat(pts[i][0], pts[i][1], LANGUAGE_BORDER_RADIUS);
+      const p2 = projectLonLat(pts[i + 1][0], pts[i + 1][1], LANGUAGE_BORDER_RADIUS);
+      flat.push(p1.flat.x, p1.flat.y, LANGUAGE_BORDER_Z, p2.flat.x, p2.flat.y, LANGUAGE_BORDER_Z);
+      sphere.push(p1.sphere.x, p1.sphere.y, p1.sphere.z, p2.sphere.x, p2.sphere.y, p2.sphere.z);
+    }
   });
   return { flat: new Float32Array(flat), sphere: new Float32Array(sphere) };
 }

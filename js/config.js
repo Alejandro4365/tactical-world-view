@@ -49,3 +49,13 @@ const GLOBE_MIN_DISTANCE = SPHERE_RADIUS * 1.03;
 const GLOBE_MAX_DISTANCE = 900;
 const MAP_MIN_DISTANCE = 10;    // was 60. Lower = zoom in closer
 const MAP_MAX_DISTANCE = 1200;
+
+// --- Tiled imagery (see tiles.js) ---
+// Equirectangular tile pyramid: {z}, {row} (0 = north), {col} (0 = -180°).
+// Level z has 2^(z+1) x 2^z tiles. Must send CORS headers.
+const TILE_URL_TEMPLATE = 'https://YOUR-TILE-HOST/{z}/{row}/{col}.jpg';
+const TILE_SIZE = 256;
+const TILE_MAX_ZOOM = 4;               // z=4 -> 8192 x 4096 texels
+const TILE_MAX_CANVAS_AREA = 16777216; // iOS canvas limit
+const TILE_MAX_CONCURRENT = 6;
+const TILE_UPLOAD_INTERVAL_MS = 250;
