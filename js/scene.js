@@ -18,7 +18,10 @@ function init() {
   renderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  scene.add(new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY));
+  headlight = new THREE.DirectionalLight(0xffffff, HEADLIGHT_INTENSITY);
+  scene.add(headlight);
+  scene.add(headlight.target);
   const sun = new THREE.DirectionalLight(0xffffff, 1.0);
   sun.position.set(5, 3, 5);
   scene.add(sun);
@@ -72,6 +75,8 @@ function animate() {
     mesh.rotation.y += AUTO_ROTATE_SPEED;
   }
   controls.update();
+  headlight.position.copy(camera.position);
+  headlight.target.position.copy(controls.target);
   // Pin globe center / constrain map view after controls moved the camera
   enforceViewConstraints();
   // Size, place and cull all labels for this frame's camera

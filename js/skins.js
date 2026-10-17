@@ -44,10 +44,3 @@ async function applySkin(key) {
   }
   console.error('All sources failed for skin "' + key + '"; keeping the current skin.');
 }
-
-function setSkinMap(texture, color) {
-  if (mesh.material.map) mesh.material.map.dispose();
-  mesh.material.map = texture;
-  mesh.material.color.set(color);
-  mesh.material.needsUpdate = true;
-}
