@@ -14,6 +14,12 @@ const SPHERE_RADIUS = 100;
 const FLAT_WIDTH = 340;
 const FLAT_HEIGHT = 170;
 
+<<<<<<< HEAD
+=======
+const AMBIENT_INTENSITY = 0.55;
+const HEADLIGHT_INTENSITY = 0.7;
+
+>>>>>>> parent of 29ec2d4 (fix: adjust ambient and headlight intensity values for improved lighting consistency)
 const COUNTRIES_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson';
 
 const AUTO_ROTATE_SPEED = 0.0012; // radians per frame, idle globe spin
