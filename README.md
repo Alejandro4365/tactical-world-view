@@ -1,4 +1,4 @@
-# tactical-world view site
+# tactical-world-view site
 
 A website designed for interactive geographical info visualization
 
